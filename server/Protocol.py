@@ -36,8 +36,108 @@
 # FLUSH - try to commit all pending updates
 
 import asyncio
+import os
+import celery
 
-from CeleryWorkers import CreateRepo, RenameRepo, UpdateRepo, DeleteRepo
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
+import CeleryWorkers
+
+# import our configuration
+
+CFGFILE = os.environ.get("GATOR_CONFIG_FILE")
+CFGDATA = {}
+with open(CFGFILE) as f:
+    CFGDATA = json.load(f)
+
+# helper functions
+
+def isExcluded(repo, config):
+
+    for pattern in config:
+        p = re.compile(pattern)
+        if p.match(repo):
+            return True
+    return False
+
+def CreateRepo(repo):
+
+    # find our repository and read in the description
+    repoRoot = CFGDATA.get("RepoRoot")
+    repoPath = os.path.join(repoRoot, repo)
+    if not os.path.exists(repoPath):
+        return
+
+    repoDesc = "This repository has no description"
+    repoDescFile = os.path.join(repoPath, "description")
+    if os.path.exists(repoDescFile):
+        with open(repoDescFile) as f:
+            repoDesc = f.read().strip()
+
+    # spawn the create tasks
+    if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
+        CeleryWorkers.CreateRepoGithub.delay(repo, repoDesc)
+
+    if CFGDATA.get("AnongitEnabled") and (not isExcluded(repo, CFGDATA.get("AnongitExcepts"))):
+        for server in CFGDATA.get("AnongitServers"):
+            CeleryWorkers.CreateRepoAnongit.delay(repo, server, repoDesc)
+
+def RenameRepo(srcRepo, destRepo):
+
+    if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
+        CeleryWorkers.MoveRepoGithub.delay(srcRepo, destRepo)
+
+    if CFGDATA.get("AnongitEnabled") and (not isExcluded(repo, CFGDATA.get("AnongitExcepts"))):
+        for server in CFGDATA.get("AnongitServers"):
+            CeleryWorkers.CreateRepoAnongit.delay(srcRepo, destRepo, server)
+
+def UpdateRepo(repo):
+
+    # find our repository
+    repoRoot = CFGDATA.get("RepoRoot")
+    repoPath = os.path.join(repoRoot, repo)
+    if not os.path.exists(repoPath):
+        return
+
+    # lift the repo description as we might need to create the repo first
+    repoDesc = "This repository has no description"
+    repoDescFile = os.path.join(repoPath, "description")
+    if os.path.exists(repoDescFile):
+        with open(repoDescFile) as f:
+            repoDesc = f.read().strip()
+
+    # spawn push to github task first
+    if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
+        githubPrefix = CFGDATA.get("GithubPrefix")
+        githubUser = CFGDATA.get("GithubUser")
+        githubRemote = "%s@github.com:%s/%s" % (githubUser, githubPrefix, repo)
+
+        createTask = CeleryWorkers.CreateRepoGithub.si(repo, repoDesc)
+        syncTask = CeleryWorkers.SyncRepo.si(repoPath, githubRemote, True)
+        celery.chain(createTask, syncTask)()
+
+    # now spawn all push to anongit tasks
+    if CFGDATA.get("AnongitEnabled") and (not isExcluded(repo, CFGDATA.get("AnongitExcepts"))):
+        anonUser = CFGDATA.get("AnongitUser")
+        anonPrefix = CFGDATA.get("AnongitPrefix")
+        for server in CFGDATA.get("AnongitServers"):
+            anonRemote = "%s@%s:%s/%s" % (anonUser, server, anonPrefix, repo)
+
+            createTask = CeleryWorkers.CreateRepoAnongit.si(repo, server, repoDesc)
+            syncTask = CeleryWorkers.SyncRepo.si(repoPath, anonRemote, False)
+            celery.chain(createTask, syncTask)()
+
+def DeleteRepo(repo):
+
+    if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
+        CeleryWorkers.DeleteRepoGithub.delay(repo)
+
+    if CFGDATA.get("AnongitEnabled") and (not isExcluded(repo, CFGDATA.get("AnongitExcepts"))):
+        for server in CFGDATA.get("AnongitServers"):
+            CeleryWorkers.DeleteRepoAnongit.delay(repo, server)
 
 class CommandProtocol(asyncio.Protocol):
 
@@ -58,11 +158,11 @@ class CommandProtocol(asyncio.Protocol):
         sourceRepo = components[1]
 
         if command == "CREATE":
-            CreateRepo.delay(sourceRepo)
+            CreateRepo(sourceRepo)
         elif command == "RENAME":
             destRepo = components[2]
-            RenameRepo.delay(sourceRepo, destRepo)
+            RenameRepo(sourceRepo, destRepo)
         elif command == "UPDATE":
-            UpdateRepo.delay(sourceRepo)
+            UpdateRepo(sourceRepo)
         elif command == "DELETE":
-            DeleteRepo.delay(sourceRepo)
+            DeleteRepo(sourceRepo)

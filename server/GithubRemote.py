@@ -30,7 +30,6 @@
 import os
 import sys
 import requests
-import configparser
 
 try:
     import simplejson as json
@@ -41,17 +40,25 @@ class GithubRemote(object):
 
     def __init__(self, name, desc = "This repository has no description"):
 
-        config = configparser.ConfigParser()
-        config.read(os.path.expanduser('~/.github-mirrorrc'))
-
         self.REPO_NAME = name
         self.REPO_DESC = desc
-        self.ACCESS_TOKEN = config.get('Github', 'access_token')
-        self.ORGANISATION = config.get('Github', 'organisation')
+
+        cfgPath = os.environ.get("GATOR_CONFIG_FILE")
+        cfgData = {}
+        with open(cfgPath) as f:
+            cfgData = json.load(f)
+
+        self.ORGANISATION = cfgData.get("GithubOrganization")
+        self.ACCESS_TOKEN = None
+        with open(os.path.expanduser(cfgData.get("GithubAPIKeyFile"))) as f:
+            self.ACCESS_TOKEN = f.read().strip()
 
         self.SESSION = requests.Session()
         self.SESSION.headers.update({"Accept": "application/vnd.github.v3+json"})
         self.SESSION.headers.update({"Authorization": " ".join(("token", ACCESS_TOKEN))})
+
+        if self.REPO_NAME.endswith(".git"):
+            self.REPO_NAME = self.REPO_NAME.rstrip(".git")
 
     def __repr__(self):
 
@@ -97,6 +104,9 @@ class GithubRemote(object):
         return (r.status_code == 204)
 
     def moveRepo(self, newname):
+
+        if newname.endswith(".git"):
+            newname = newname.rstrip(".git")
 
         payload = {"name": newname}
         url = "/".join(("https://api.github.com/repos", self.ORGANISATION, self.REPO_NAME))

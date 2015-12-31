@@ -51,9 +51,8 @@ def doSync(src, dest, restricted = False):
     # do the push
 
     ret = None
-
-    if (refspec):
-        ret = remote.push(refspec)
+    if (refs):
+        ret = remote.push(refs)
     else:
         ret = remote.push("--mirror")
 

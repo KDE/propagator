@@ -1,14 +1,16 @@
 {
-    "RepoRoot": "/srv/git/repositories",
+    "RepoRoot": "/home/bg14ina/testRepos/",
 
+    "GithubEnabled": false,
     "GithubPrefix": "kde",
     "GithubUser": "git",
+    "GithubOrganization": "kde",
     "GithubAPIKeyFile": "",
 
-    "AnongitPrefix": "kde",
+    "AnongitEnabled": true,
+    "AnongitPrefix": "repos",
     "AnongitUser": "git",
     "AnongitAPIKeyFile": "~/GatorAgent",
-
     "AnongitServers": [
         "89.248.108.131"
     ],
