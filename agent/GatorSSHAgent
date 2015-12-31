@@ -33,7 +33,16 @@ import sys
 import shlex
 import git
 
-REPO_ROOT = os.path.expanduser("~/kde")
+# the GATOR_REPOS_ROOT environment variable should tell us where the repos are
+# located. if the variable is not defined, default to ~/repos
+
+REPO_ROOT = os.environ.get("GATOR_REPOS_ROOT")
+if not REPO_ROOT:
+    REPO_ROOT = "~/repos"
+REPO_ROOT = os.path.expanduser(REPO_ROOT)
+
+# write a description to the repo's description file. repos on the server are
+# always bare repos, so this file exists
 
 def setRepoDescription(repoName, repoDesc):
 
@@ -45,6 +54,8 @@ def setRepoDescription(repoName, repoDesc):
     with open(os.path.join(repoDir, "description"), "w") as f:
         f.write(repoDesc.strip() + "\n")
     return True
+
+# create a bare repo on the server
 
 def createRepo(repoName, repoDesc):
 
@@ -59,6 +70,10 @@ def createRepo(repoName, repoDesc):
     print("ERROR: Failed to create repo")
     return False
 
+# boolean function to check if a repo already exists. this is slightly tailored
+# for the EXISTS command, so we can't use this function internally to do exists
+# checks in the other functions
+
 def repoExists(repoName):
 
     repoDir = os.path.join(REPO_ROOT, repoName)
@@ -72,6 +87,8 @@ def repoExists(repoName):
 
     print("ERROR: Repo does not exist")
     return False
+
+# move or rename an existing repo
 
 def renameRepo(oldRepo, newRepo):
 
@@ -92,15 +109,17 @@ def renameRepo(oldRepo, newRepo):
     shutil.move(oldRepoPath, newRepoPath)
     return True
 
+# delete an existing repo. this does not ask for confirmation, so be careful
+
 def deleteRepo(repoName):
 
     repoDir = os.path.join(REPO_ROOT, repoName)
     if not os.path.exists(repoDir):
         print("ERROR: Repo does not exist")
         return False
+    return shutil.rmtree(path)
 
-    shutil.rmtree(path)
-    return True
+# the SSH_ORIGINAL_COMMAND parser
 
 def processCommand(commandList):
 
@@ -123,6 +142,9 @@ def processCommand(commandList):
     else:
         print("ERROR: Invalid command entered. This account does not allow shell access.")
         return False
+
+# SSH_ORIGINAL_COMMAND contains our command string. parse it and pass it to
+# processCommand to actually do something
 
 if __name__ == "__main__":
 
