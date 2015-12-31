@@ -31,6 +31,7 @@
 import os
 import sys
 import shlex
+import shutil
 import git
 
 # the GATOR_REPOS_ROOT environment variable should tell us where the repos are
@@ -64,7 +65,7 @@ def createRepo(repoName, repoDesc):
         print("ERROR: Repo already exists")
         return False
 
-    repo = git.Repo.init(repoDir)
+    repo = git.Repo.init(repoDir, bare = True)
     if repo.bare:
         return setRepoDescription(repoName, repoDesc)
     print("ERROR: Failed to create repo")
