@@ -118,7 +118,7 @@ def deleteRepo(repoName):
     if not os.path.exists(repoDir):
         print("ERROR: Repo does not exist")
         return False
-    return shutil.rmtree(path)
+    return shutil.rmtree(repoDir)
 
 # the SSH_ORIGINAL_COMMAND parser
 
