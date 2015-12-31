@@ -118,7 +118,9 @@ def deleteRepo(repoName):
     if not os.path.exists(repoDir):
         print("ERROR: Repo does not exist")
         return False
-    return shutil.rmtree(repoDir)
+
+    shutil.rmtree(repoDir)
+    return not os.path.exists(repoDir)
 
 # the SSH_ORIGINAL_COMMAND parser
 
@@ -130,10 +132,10 @@ def processCommand(commandList):
     if cmd == "EXISTS":
         return repoExists(repoName)
     elif cmd == "SETDESC":
-        repoDesc = commandList[2]
+        repoDesc = " ".join(commandList[2:])
         return setRepoDescription(repoName, repoDesc)
     elif cmd == "CREATE":
-        repoDesc = commandList[2]
+        repoDesc = " ".join(commandList[2:])
         return createRepo(repoName, repoDesc)
     elif cmd == "DELETE":
         return deleteRepo(repoName)
@@ -155,7 +157,6 @@ if __name__ == "__main__":
         print("FAIL")
         sys.exit(1)
 
-    print(soc)
     socList = shlex.split(soc)
     ret = processCommand(socList)
     if ret:
