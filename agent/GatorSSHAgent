@@ -91,7 +91,7 @@ def repoExists(repoName):
 
 # move or rename an existing repo
 
-def renameRepo(oldRepo, newRepo):
+def moveRepo(oldRepo, newRepo):
 
     oldRepoPath = os.path.abspath(os.path.join(REPO_ROOT, oldRepo))
     newRepoPath = os.path.abspath(os.path.join(REPO_ROOT, newRepo))
