@@ -33,9 +33,23 @@ The agent is available at `agent/GatorSSHAgent`, and is a single self-contained 
 
 To set up the agent to talk to the server, here's what you have to do:
 
-1. First, generate an SSH keypar and copy the public key to the server's `~/.ssh/authorized_keys` file.
+1. First, generate a new SSH keypair and copy the public key to the server's `~/.ssh/authorized_keys` file. Do **NOT** re-use your existing SSH key. This is important.
 2. On the Propagator server, edit the configuration to point to the private key file. The relevant entry is `AnongitAPIKeyFile` in `config/ServerConfig.json`.
 3. On the mirror, edit the `~/.ssh/authorized_keys` and **prefix** the entry for this public key with `command=/path/to/GatorSSHAgent`. The entry should look like this: `command=/path/to/GatorSSHAgent ssh-rsa AbbcDEfgggHHj... your@ssh-key-comment`.
+
+Of course, this only handles the management of repositories on the servers. Pushes are done over the standard ssh+git mechanism. This is why you need a separate key for the control API - OpenSSH uses the key to discern between a shell or git login or a control API login.
+
+## Updating Repositories
+
+Once the server is up and running, and Anongit servers have been configured with the SSH agent, you'll want to actually push updates to your fleet.
+
+Propagator can create repositories on remotes on first push, so you don't have to create repositories on the remotes manually.
+
+In your repo's `post-recieve` or `post-update` hook, simply add this command:
+
+    ${PROPAGATOR_REPO}/bin/mirrorctl update reponame.git
+
+Where `${PROPAGATOR_REPO}` is the location to where you've cloned the Propagator repository, and `reponame.git` is the repository that you want to update on your remotes.
 
 And that's it.
 
