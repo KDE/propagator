@@ -37,7 +37,7 @@
 
 import asyncio
 
-from PropagatorWorkers import CreateRepo, RenameRepo, UpdateRepo, DeleteRepo
+from CeleryWorkers import CreateRepo, RenameRepo, UpdateRepo, DeleteRepo
 
 class CommandProtocol(asyncio.Protocol):
 

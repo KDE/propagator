@@ -43,9 +43,15 @@ class AnongitRemote(object):
         self.REPO_NAME = name
         self.REPO_DESC = desc
 
-        # load the configuration
-        self.SSH_USER = "git"
-        self.SSH_KEYFILE = os.path.expanduser("~/GatorAgent")
+        # load the ssh configuration
+
+        cfgPath = os.environ.get("GATOR_CONFIG_FILE")
+        cfgData = {}
+        with open(cfgPath) as f:
+            cfgData = json.load(f)
+
+        self.SSH_USER = cfgData.get("AnongitUser")
+        self.SSH_KEYFILE = os.path.expanduser(cfgData.get("AnongitAPIKeyFile"))
 
     def __repr__(self):
 

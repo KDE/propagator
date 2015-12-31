@@ -43,10 +43,8 @@ from AnongitRemote import AnongitRemote
 # some path constants without which we won't be able to get
 # to the configuration
 
-MGMTDIR = "/home/git/repo-management"
-CFGFILE = os.path.join(MGMTDIR, config, "PropagatorConfig.json")
+CFGFILE = os.environ.get("GATOR_CONFIG_FILE")
 CFGDATA = {}
-
 with open(CFGFILE) as f:
     CFGDATA = json.load(f)
 

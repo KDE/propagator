@@ -33,7 +33,7 @@ import os
 import asyncio
 import signal
 
-from PropagatorProtocol import CommandProtocol
+from Protocol import CommandProtocol
 
 def main():
 

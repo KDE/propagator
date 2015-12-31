@@ -30,7 +30,7 @@
 import os
 import sys
 import requests
-import ConfigParser
+import configparser
 
 try:
     import simplejson as json
@@ -41,7 +41,7 @@ class GithubRemote(object):
 
     def __init__(self, name, desc = "This repository has no description"):
 
-        config = ConfigParser.ConfigParser()
+        config = configparser.ConfigParser()
         config.read(os.path.expanduser('~/.github-mirrorrc'))
 
         self.REPO_NAME = name
