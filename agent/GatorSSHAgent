@@ -155,6 +155,7 @@ if __name__ == "__main__":
         print("FAIL")
         sys.exit(1)
 
+    print(soc)
     socList = shlex.split(soc)
     ret = processCommand(socList)
     if ret:
