@@ -1,17 +1,16 @@
 {
     "RepoRoot": "/srv/git/repositories",
+
     "GithubPrefix": "kde",
     "GithubUser": "git",
+    "GithubAPIKeyFile": "",
+
     "AnongitPrefix": "kde",
     "AnongitUser": "git",
+    "AnongitAPIKeyFile": "~/GatorAgent",
 
     "AnongitServers": [
-        "node4.mneisen.org",
-        "mason.kde.org",
-        "serenity.kde.org",
-        "kde-git.jefferai.org",
-        "probe.kde.org",
-        "mimi.kde.org"
+        "89.248.108.131"
     ],
 
     "GithubExcepts": [

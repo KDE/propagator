@@ -28,6 +28,12 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import subprocess
+import os
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 class AnongitRemote(object):
 
@@ -37,15 +43,20 @@ class AnongitRemote(object):
         self.REPO_NAME = name
         self.REPO_DESC = desc
 
+        # load the configuration
+        self.SSH_USER = "git"
+        self.SSH_KEYFILE = os.path.expanduser("~/GatorAgent")
+
     def __repr__(self):
 
         return ("<AnongitRemote for %s:%s>" % (self.HOST, self.REPO_NAME))
 
     def __runSshCommand(self, command):
 
-        cmdContext = ("ssh", self.HOST, command)
+        hostString = "%s@%s" % (self.SSH_USER, self.HOST)
+        cmdContext = ("ssh", "-i",  self.SSH_KEYFILE, hostString, command)
         ssh = subprocess.Popen(cmdContext, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = False)
-        result = ssh.stdout.readlines()
+        result = [i.decode().strip() for i in ssh.stdout.readlines()]
 
         if "OK" in result:
             return True
@@ -56,28 +67,28 @@ class AnongitRemote(object):
 
         self.REPO_DESC = desc
         if self.repoExists():
-            command = ("SETDESC %s \"%s\"" % self.REPO_NAME, self.REPO_DESC)
+            command = "SETDESC %s \"%s\"" % (self.REPO_NAME, self.REPO_DESC)
             return self.__runSshCommand(command)
         return True
 
     def repoExists(self):
 
-        command = ("EXISTS %s" % self.REPO_NAME)
+        command = "EXISTS %s" % (self.REPO_NAME)
         return self.__runSshCommand(command)
 
     def createRepo(self):
 
-        command = ("CREATE %s \"%s\"" % self.REPO_NAME, self.REPO_DESC)
+        command = "CREATE %s \"%s\"" % (self.REPO_NAME, self.REPO_DESC)
         return self.__runSshCommand(command)
 
     def deleteRepo(self):
 
-        command = ("DELETE %s" % self.REPO_NAME)
+        command = "DELETE %s" % (self.REPO_NAME)
         return self.__runSshCommand(command)
 
     def moveRepo(self, newname):
 
-        command = ("MOVE %s %s" % (self.REPO_NAME), newname)
+        command = "MOVE %s %s" % (self.REPO_NAME, newname)
         ret = self.__runSshCommand(command)
 
         if ret:
