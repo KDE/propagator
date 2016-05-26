@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # This file is part of Propagator, a KDE Sysadmin Project
 #
-# Copyright 2015 Boudhayan Gupta <bgupta@kde.org>
+#   Copyright (C) 2015 Boudhayan Gupta <bgupta@kde.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,78 +28,131 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from datetime import datetime
+
 import socket
 import os
 import sys
 import argparse
 
-if __name__ == "__main__":
+# propagator daemon server details, and client log path
 
+SERVER_ADDR = "::1"
+SERVER_PORT = 58192
+CLIENT_LOGF = os.environ.get("GATOR_MIRRORCTL_LOG", os.path.expanduser("~/.propagator/mirrorctl.log"))
+
+# utility functions
+
+def LogAction(message, iserror, verbose):
+
+    # if verbose mode is enabled and not an error, print to stdout
+    if (not iserror) and (verbose):
+        print(message)
+
+    # if error, print to stderr
+    if (iserror):
+        print(message, file = sys.stderr)
+
+    # always log to the logfile. create path first if not exists
+    logpath = os.path.dirname(CLIENT_LOGF)
+    if not os.path.isdir(logpath):
+        os.makedirs(logpath, 0o755, True)
+
+    # and write the logline
+    with open(CLIENT_LOGF, "a") as f:
+        logline = "{0} | {1}\n".format(datetime.now().strftime("%Y-%m-%d %k:%M:%S"), message)
+        f.write(logline)
+
+def SendCommand(cmd, verbose = True):
+
+    # initialise socket to connect to propagator daemon
+    clientSocket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    clientSocket.settimeout(5)
+
+    # try to connect to propagator daemon
+    try:
+        clientSocket.connect((SERVER_ADDR, SERVER_PORT))
+    except Exception as exc:
+        LogAction("FATAL: Failed to connect to Propagator Daemon. The error was: {0}".format(str(exc)), True, verbose)
+        sys.exit(1)
+
+    # send our computed command
+    try:
+        clientSocket.sendall(cmd.encode())
+    except Exception as exc:
+        LogAction("FATAL: Could not send command to Propagator Daemon. The error was: {0}".format(str(exc)), True, verbose)
+    finally:
+        clientSocket.close()
+    LogAction("Command sent to Propagator Daemon: {0}".format(cmd.strip()), False, verbose)
+
+def ComputeCommand(results):
+
+    cmd = results.command.lower()
+    if cmd == "create":
+        return "CREATE {0}\r\n".format(results.name)
+    elif cmd == "update":
+        return "UPDATE {0}\r\n".format(results.name)
+    elif cmd == "create":
+        return "DELETE {0}\r\n".format(results.name)
+    elif cmd == "rename":
+        return "RENAME {0} {1}\r\n".format(results.source, results.destination)
+    else:
+        return None
+
+def SanityCheck(repo):
+
+    # TODO: basic sanity checking - check that the repo exists
+    return True
+
+def ParseArguments():
+
+    # create our main parser
     parser = argparse.ArgumentParser(prog = "mirrorctl")
     parser.add_argument("-q", "--quiet", action = "store_true", help = "don't display any output when no errors are encountered")
     subparsers = parser.add_subparsers(dest = "command")
 
-    # create all our subcommands
-
-    pCreate = subparsers.add_parser("create", help = "create repos on mirrors for already existing server repo")
+    # subparser for repo creation
+    pCreate = subparsers.add_parser("create", help = "create repos on mirrors for already existing repo on the master server")
     pCreate.add_argument("name", type = str, help = "the name of the repo to create, without path, with trailing .git")
 
+    # subparser for repo rename
     pRename = subparsers.add_parser("rename", help = "rename a repo on all mirrors")
     pRename.add_argument("source", type = str, help = "the source repo, without path, with trailing .git")
     pRename.add_argument("destination", type = str, help = "the destination repo, without path, with trailing .git")
 
+    # subparser for repo update
     pUpdate = subparsers.add_parser("update", help = "push updates to all repo mirrors")
     pUpdate.add_argument("name", type = str, help = "the repo to update, without path, with trailing .git")
 
+    # subparser for repo delete
     pDelete = subparsers.add_parser("delete", help = "delete a repo on all mirrors")
     pDelete.add_argument("name", type = str, help = "the repo to delete, without path, with trailing .git")
 
-    pFlush = subparsers.add_parser("flush", help = "try to commit all pending updates to mirrors")
-
     # parse all arguments
-
     results = parser.parse_args()
-    if not results.command:
+
+    # if invalid or no subcommand was supplied, the invocation is invalid
+    if not results.command or results.command.lower() not in ("create", "rename", "update", "delete"):
         parser.print_help()
         sys.exit(1)
 
-    cmd = results.command.lower()
-    if cmd not in ("create", "rename", "update", "delete", "flush"):
-        parser.print_help()
+    # return the parse results
+    return results
+
+if __name__ == "__main__":
+
+    # run the argument parser
+    results = ParseArguments()
+    verbose = not results.quiet
+
+    # check the the repo exists and is valid
+    if not SanityCheck(results.name):
+        LogAction("FATAL: \"{0}\" either does not exist or is not a valid repository".format(results.name), True, verbose)
         sys.exit(1)
 
-    # TODO: basic sanity checking - check that the repo exists
+    # compute the command and send it
+    command = ComputeCommand(results)
+    SendCommand(command, verbose)
 
-    # create the client socket to communicate with the propagator daemon
-
-    socketPath = os.path.expanduser("~/.propagator.sock")
-    if not os.path.exists(socketPath):
-        print("ERROR: PropagatorServer is not running. Please notify the KDE Sysadmins", file=sys.stderr)
-        sys.exit(1)
-
-    clientSocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    clientSocket.connect(socketPath)
-
-    # send our data
-
-    message = None
-
-    if cmd == "create":
-        message = ("CREATE %s\r\n" % results.name)
-    elif cmd == "rename":
-        message = ("RENAME %s %s\r\n" % (results.source, results.destination))
-    elif cmd == "update":
-        message = ("UPDATE %s\r\n" % results.name)
-    elif cmd == "delete":
-        message = ("DELETE %s\r\n" % results.name)
-    elif cmd == "flush":
-        message = "FLUSH\r\n"
-
-    clientSocket.sendall(message.encode())
-    if not results.quiet:
-        print("Successfully sent message to PropagatorServer: %s" % message.strip())
-
-    # close
-
-    clientSocket.close()
+    # done
     sys.exit(0)

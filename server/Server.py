@@ -30,6 +30,7 @@
 
 import sys
 import os
+import socket
 import asyncio
 import signal
 
@@ -46,7 +47,7 @@ def main():
 
     # init the event loop and inject the server coroutine
     loop = asyncio.get_event_loop()
-    serverCoro = loop.create_unix_server(CommandProtocol, socketPath)
+    serverCoro = loop.create_server(CommandProtocol, host = "::1", port = 58192, family = socket.AF_INET6)
     serverJob = loop.run_until_complete(serverCoro)
     print("PropagatorServer has PID {} and is listening at {}".format(os.getpid(), serverJob.sockets[0].getsockname()))
 
