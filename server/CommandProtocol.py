@@ -42,19 +42,8 @@ import celery
 from datetime import datetime
 from collections import namedtuple
 
-try:
-    import simplejson as json
-except ImportError:
-    import json
-
 import CeleryWorkers
-
-# import our configuration
-
-CFGFILE = os.environ.get("GATOR_CONFIG_FILE")
-CFGDATA = {}
-with open(CFGFILE) as f:
-    CFGDATA = json.load(f)
+from ServerConfig import ServerConfig
 
 # protocol exceptions
 
@@ -90,7 +79,7 @@ def isExcluded(repo, config):
 def CreateRepo(repo, upSpec):
 
     # find our repository and read in the description
-    repoRoot = CFGDATA.get("RepoRoot")
+    repoRoot = ServerConfig.get("RepoRoot")
     repoPath = os.path.join(repoRoot, repo)
     if not os.path.exists(repoPath):
         return
@@ -102,26 +91,26 @@ def CreateRepo(repo, upSpec):
             repoDesc = f.read().strip()
 
     # spawn the create tasks
-    if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
+    if ServerConfig.get("GithubEnabled") and (not isExcluded(repo, ServerConfig.get("GithubExcepts"))):
         CeleryWorkers.CreateRepoGithub.delay(repo, repoDesc)
 
-    if CFGDATA.get("AnongitEnabled") and (not isExcluded(repo, CFGDATA.get("AnongitExcepts"))):
-        for server in CFGDATA.get("AnongitServers"):
+    if ServerConfig.get("AnongitEnabled") and (not isExcluded(repo, ServerConfig.get("AnongitExcepts"))):
+        for server in ServerConfig.get("AnongitServers"):
             CeleryWorkers.CreateRepoAnongit.delay(repo, server, repoDesc)
 
 def RenameRepo(srcRepo, destRepo, upSpec):
 
-    if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
+    if ServerConfig.get("GithubEnabled") and (not isExcluded(repo, ServerConfig.get("GithubExcepts"))):
         CeleryWorkers.MoveRepoGithub.delay(srcRepo, destRepo)
 
-    if CFGDATA.get("AnongitEnabled") and (not isExcluded(repo, CFGDATA.get("AnongitExcepts"))):
-        for server in CFGDATA.get("AnongitServers"):
+    if ServerConfig.get("AnongitEnabled") and (not isExcluded(repo, ServerConfig.get("AnongitExcepts"))):
+        for server in ServerConfig.get("AnongitServers"):
             CeleryWorkers.CreateRepoAnongit.delay(srcRepo, destRepo, server)
 
 def UpdateRepo(repo, upSpec):
 
     # find our repository
-    repoRoot = CFGDATA.get("RepoRoot")
+    repoRoot = ServerConfig.get("RepoRoot")
     repoPath = os.path.join(repoRoot, repo)
     if not os.path.exists(repoPath):
         return
@@ -134,9 +123,9 @@ def UpdateRepo(repo, upSpec):
             repoDesc = f.read().strip()
 
     # spawn push to github task first
-    if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
-        githubPrefix = CFGDATA.get("GithubPrefix")
-        githubUser = CFGDATA.get("GithubUser")
+    if ServerConfig.get("GithubEnabled") and (not isExcluded(repo, ServerConfig.get("GithubExcepts"))):
+        githubPrefix = ServerConfig.get("GithubPrefix")
+        githubUser = ServerConfig.get("GithubUser")
         githubRemote = "%s@github.com:%s/%s" % (githubUser, githubPrefix, repo)
 
         createTask = CeleryWorkers.CreateRepoGithub.si(repo, repoDesc)
@@ -144,10 +133,10 @@ def UpdateRepo(repo, upSpec):
         celery.chain(createTask, syncTask)()
 
     # now spawn all push to anongit tasks
-    if CFGDATA.get("AnongitEnabled") and (not isExcluded(repo, CFGDATA.get("AnongitExcepts"))):
-        anonUser = CFGDATA.get("AnongitUser")
-        anonPrefix = CFGDATA.get("AnongitPrefix")
-        for server in CFGDATA.get("AnongitServers"):
+    if ServerConfig.get("AnongitEnabled") and (not isExcluded(repo, ServerConfig.get("AnongitExcepts"))):
+        anonUser = ServerConfig.get("AnongitUser")
+        anonPrefix = ServerConfig.get("AnongitPrefix")
+        for server in ServerConfig.get("AnongitServers"):
             anonRemote = "%s@%s:%s/%s" % (anonUser, server, anonPrefix, repo)
 
             createTask = CeleryWorkers.CreateRepoAnongit.si(repo, server, repoDesc)
@@ -156,11 +145,11 @@ def UpdateRepo(repo, upSpec):
 
 def DeleteRepo(repo, upSpec):
 
-    if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
+    if ServerConfig.get("GithubEnabled") and (not isExcluded(repo, ServerConfig.get("GithubExcepts"))):
         CeleryWorkers.DeleteRepoGithub.delay(repo)
 
-    if CFGDATA.get("AnongitEnabled") and (not isExcluded(repo, CFGDATA.get("AnongitExcepts"))):
-        for server in CFGDATA.get("AnongitServers"):
+    if ServerConfig.get("AnongitEnabled") and (not isExcluded(repo, ServerConfig.get("AnongitExcepts"))):
+        for server in ServerConfig.get("AnongitServers"):
             CeleryWorkers.DeleteRepoAnongit.delay(repo, server)
 
 def ParseCommand(cmdString):
