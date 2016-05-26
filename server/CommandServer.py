@@ -29,7 +29,6 @@
 
 import sys
 
-import tornado.iostream
 import tornado.tcpserver
 import tornado.gen
 
