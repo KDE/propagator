@@ -95,7 +95,7 @@ def ComputeCommand(results):
     elif cmd == "create":
         return "DELETE {0}\r\n".format(results.name)
     elif cmd == "rename":
-        return "RENAME {0} {1}\r\n".format(results.source, results.destination)
+        return "RENAME {0} {1}\r\n".format(results.name, results.destination)
     else:
         return None
 
@@ -117,7 +117,7 @@ def ParseArguments():
 
     # subparser for repo rename
     pRename = subparsers.add_parser("rename", help = "rename a repo on all mirrors")
-    pRename.add_argument("source", type = str, help = "the source repo, without path, with trailing .git")
+    pRename.add_argument("name", type = str, help = "the source repo, without path, with trailing .git")
     pRename.add_argument("destination", type = str, help = "the destination repo, without path, with trailing .git")
 
     # subparser for repo update

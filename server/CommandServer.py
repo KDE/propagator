@@ -1,7 +1,6 @@
-#!/usr/bin/python3
 # This file is part of Propagator, a KDE Sysadmin Project
 #
-#   Copyright 2015-2016 (C) Boudhayan Gupta <bgupta@kde.org>
+#   Copyright (C) 2015-2016 Boudhayan Gupta <bgupta@kde.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,12 +27,29 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import tornado.ioloop
-import CommandServer
+import sys
 
-# start the command server
-cmdServer = CommandServer.CommandServer()
-cmdServer.listen(58192, "::1")
+import tornado.iostream
+import tornado.tcpserver
+import tornado.gen
 
-# start the ioloop
-tornado.ioloop.IOLoop.current().start()
+from CommandProtocol import ParseCommand, ExecuteCommand
+from CommandProtocol import PropagatorProtocolException
+
+class CommandServer(tornado.tcpserver.TCPServer):
+
+    @tornado.gen.coroutine
+    def handle_stream(self, stream, address):
+        data = yield stream.read_until_close()
+        try:
+            context = ParseCommand(data.decode().strip())
+        except PropagatorProtocolException as exc:
+            sys.stderr.write(exc.logline())
+            return
+        ExecuteCommand(context)
+
+if __name__ == "__main__":
+    # fire up the server
+    server = PropagatorServer()
+    server.listen(58192, "::1")
+    tornado.ioloop.IOLoop.current().start()

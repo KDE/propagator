@@ -1,6 +1,6 @@
 # This file is part of Propagator, a KDE Sysadmin Project
 #
-# Copyright 2015 Boudhayan Gupta <bgupta@kde.org>
+#   Copyright (C) 2015-2016 Boudhayan Gupta <bgupta@kde.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,9 +35,12 @@
 # DELETE reponame - delete reponame.git
 # FLUSH - try to commit all pending updates
 
-import asyncio
 import os
+import shlex
 import celery
+
+from datetime import datetime
+from collections import namedtuple
 
 try:
     import simplejson as json
@@ -53,6 +56,27 @@ CFGDATA = {}
 with open(CFGFILE) as f:
     CFGDATA = json.load(f)
 
+# protocol exceptions
+
+class PropagatorProtocolException(Exception):
+
+    def logline(self):
+        time = datetime.now().strftime("%Y-%m-%d %k:%M:%S")
+        return "{0} | {1}\n".format(time, str(self))
+
+class InvalidCommandException(PropagatorProtocolException):
+
+    def __init__(self, desc, command):
+        self.description = desc
+        self.command = command
+        super(InvalidCommandException, self).__init__("{0}: {1}".format(desc, command))
+
+class InvalidActionException(PropagatorProtocolException):
+
+    def __init__(self, action):
+        self.action = action
+        super(InvalidActionException, self).__init__("Invalid command: {0}".format(action))
+
 # helper functions
 
 def isExcluded(repo, config):
@@ -63,7 +87,7 @@ def isExcluded(repo, config):
             return True
     return False
 
-def CreateRepo(repo):
+def CreateRepo(repo, upSpec):
 
     # find our repository and read in the description
     repoRoot = CFGDATA.get("RepoRoot")
@@ -85,7 +109,7 @@ def CreateRepo(repo):
         for server in CFGDATA.get("AnongitServers"):
             CeleryWorkers.CreateRepoAnongit.delay(repo, server, repoDesc)
 
-def RenameRepo(srcRepo, destRepo):
+def RenameRepo(srcRepo, destRepo, upSpec):
 
     if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
         CeleryWorkers.MoveRepoGithub.delay(srcRepo, destRepo)
@@ -94,7 +118,7 @@ def RenameRepo(srcRepo, destRepo):
         for server in CFGDATA.get("AnongitServers"):
             CeleryWorkers.CreateRepoAnongit.delay(srcRepo, destRepo, server)
 
-def UpdateRepo(repo):
+def UpdateRepo(repo, upSpec):
 
     # find our repository
     repoRoot = CFGDATA.get("RepoRoot")
@@ -130,7 +154,7 @@ def UpdateRepo(repo):
             syncTask = CeleryWorkers.SyncRepo.si(repoPath, anonRemote, False)
             celery.chain(createTask, syncTask)()
 
-def DeleteRepo(repo):
+def DeleteRepo(repo, upSpec):
 
     if CFGDATA.get("GithubEnabled") and (not isExcluded(repo, CFGDATA.get("GithubExcepts"))):
         CeleryWorkers.DeleteRepoGithub.delay(repo)
@@ -139,30 +163,60 @@ def DeleteRepo(repo):
         for server in CFGDATA.get("AnongitServers"):
             CeleryWorkers.DeleteRepoAnongit.delay(repo, server)
 
-class CommandProtocol(asyncio.Protocol):
+def ParseCommand(cmdString):
 
-    def connection_made(self, transport):
-        self.transport = transport
+    components = shlex.split(cmdString)
+    action = components[0].lower()
 
-    def connection_lost(self, exc):
-        self.transport.close()
+    if not action in ("create", "rename", "delete", "update"):
+        raise InvalidActionException(action)
+    ActionCommand = namedtuple("ActionCommand", ["action", "arguments", "upstream"])
 
-    def data_received(self, data):
-        message = data.decode().strip()
-        components = message.split(" ")
+    if action == "create":
+        try:
+            args = { "srcRepo": components[1] }
+        except IndexError:
+            raise InvalidCommandException("create command does not contain source repository details", cmdString)
+        try:
+            upstream = components[2]
+        except IndexError:
+            upstream = None
+    elif action == "update":
+        try:
+            args = { "srcRepo": components[1] }
+        except IndexError:
+            raise InvalidCommandException("update command does not contain source repository details", cmdString)
+        try:
+            upstream = components[2]
+        except IndexError:
+            upstream = None
+    elif action == "delete":
+        try:
+            args = { "srcRepo": components[1] }
+        except IndexError:
+            raise InvalidCommandException("delete command does not contain source repository details", cmdString)
+        try:
+            upstream = components[2]
+        except IndexError:
+            upstream = None
+    elif action == "rename":
+        try:
+            args = { "srcRepo": components[1], "destRepo": components[2] }
+        except IndexError:
+            raise InvalidCommandException("rename command does not contain source and/or destination repository details", cmdString)
+        try:
+            upstream = components[3]
+        except IndexError:
+            upstream = None
+    return ActionCommand(action, args, upstream)
 
-        command = components[0]
-        if command not in ("CREATE", "RENAME", "UPDATE", "DELETE", "FLUSH"):
-            # log invalid command somewhere
-            return
-        sourceRepo = components[1]
+def ExecuteCommand(context):
 
-        if command == "CREATE":
-            CreateRepo(sourceRepo)
-        elif command == "RENAME":
-            destRepo = components[2]
-            RenameRepo(sourceRepo, destRepo)
-        elif command == "UPDATE":
-            UpdateRepo(sourceRepo)
-        elif command == "DELETE":
-            DeleteRepo(sourceRepo)
+    if context.action == "create":
+        CreateRepo(context.arguments.get("srcRepo"), context.upstream)
+    elif context.action == "update":
+        UpdateRepo(context.arguments.get("srcRepo"), context.upstream)
+    elif context.action == "delete":
+        DeleteRepo(context.arguments.get("srcRepo"), context.upstream)
+    elif context.action == "rename":
+        RenameRepo(context.arguments.get("srcRepo"), context.arguments.get("destRepo"), context.upstream)
