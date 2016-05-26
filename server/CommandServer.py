@@ -47,9 +47,3 @@ class CommandServer(tornado.tcpserver.TCPServer):
             sys.stderr.write(exc.logline())
             return
         ExecuteCommand(context)
-
-if __name__ == "__main__":
-    # fire up the server
-    server = PropagatorServer()
-    server.listen(58192, "::1")
-    tornado.ioloop.IOLoop.current().start()
