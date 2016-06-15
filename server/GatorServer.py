@@ -28,10 +28,15 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import sys
 import tornado.ioloop
-import CommandServer
+
+# set up logging
+from logbook import StreamHandler
+StreamHandler(sys.stdout).push_application()
 
 # start the command server
+import CommandServer
 cmdServer = CommandServer.CommandServer()
 cmdServer.listen(58192, "::1")
 

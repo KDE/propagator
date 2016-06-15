@@ -1,6 +1,6 @@
 # This file is part of Propagator, a KDE Sysadmin Project
 #
-# Copyright 2015 Boudhayan Gupta <bgupta@kde.org>
+#   Copyright (C) 2015-2016 Boudhayan Gupta <bgupta@kde.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions

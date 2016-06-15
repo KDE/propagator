@@ -1,0 +1,11 @@
+{
+    "name": "github",
+    "description": "Remote management plugin for GitHub Organizations",
+    "version": "1.0.0",
+    "license": "BSD",
+    "author": "Boudhayan Gupta <bgupta@kde.org>",
+
+    "pushtype": "restricted",
+    "identspec": "gh",
+    "configvar": "GATOR_PCFG_GITHUB"
+}

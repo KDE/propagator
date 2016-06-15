@@ -37,13 +37,15 @@
 
 import os
 import shlex
-import celery
 
 from datetime import datetime
 from collections import namedtuple
-
-import CeleryWorkers
 from ServerConfig import ServerConfig
+
+# task dispatcher
+from RemoteControl import RemotePlugins
+from RemoteDispatcher import RemoteDispatcher
+dispatcher = RemoteDispatcher(RemotePlugins, "redis-experiment")
 
 # protocol exceptions
 
@@ -66,91 +68,7 @@ class InvalidActionException(PropagatorProtocolException):
         self.action = action
         super(InvalidActionException, self).__init__("Invalid command: {0}".format(action))
 
-# helper functions
-
-def isExcluded(repo, config):
-
-    for pattern in config:
-        p = re.compile(pattern)
-        if p.match(repo):
-            return True
-    return False
-
-def CreateRepo(repo, upSpec):
-
-    # find our repository and read in the description
-    repoRoot = ServerConfig.get("RepoRoot")
-    repoPath = os.path.join(repoRoot, repo)
-    if not os.path.exists(repoPath):
-        return
-
-    repoDesc = "This repository has no description"
-    repoDescFile = os.path.join(repoPath, "description")
-    if os.path.exists(repoDescFile):
-        with open(repoDescFile) as f:
-            repoDesc = f.read().strip()
-
-    # spawn the create tasks
-    if ServerConfig.get("GithubEnabled") and (not isExcluded(repo, ServerConfig.get("GithubExcepts"))):
-        CeleryWorkers.CreateRepoGithub.delay(repo, repoDesc)
-
-    if ServerConfig.get("AnongitEnabled") and (not isExcluded(repo, ServerConfig.get("AnongitExcepts"))):
-        for server in ServerConfig.get("AnongitServers"):
-            CeleryWorkers.CreateRepoAnongit.delay(repo, server, repoDesc)
-
-def RenameRepo(srcRepo, destRepo, upSpec):
-
-    if ServerConfig.get("GithubEnabled") and (not isExcluded(repo, ServerConfig.get("GithubExcepts"))):
-        CeleryWorkers.MoveRepoGithub.delay(srcRepo, destRepo)
-
-    if ServerConfig.get("AnongitEnabled") and (not isExcluded(repo, ServerConfig.get("AnongitExcepts"))):
-        for server in ServerConfig.get("AnongitServers"):
-            CeleryWorkers.CreateRepoAnongit.delay(srcRepo, destRepo, server)
-
-def UpdateRepo(repo, upSpec):
-
-    # find our repository
-    repoRoot = ServerConfig.get("RepoRoot")
-    repoPath = os.path.join(repoRoot, repo)
-    if not os.path.exists(repoPath):
-        return
-
-    # lift the repo description as we might need to create the repo first
-    repoDesc = "This repository has no description"
-    repoDescFile = os.path.join(repoPath, "description")
-    if os.path.exists(repoDescFile):
-        with open(repoDescFile) as f:
-            repoDesc = f.read().strip()
-
-    # spawn push to github task first
-    if ServerConfig.get("GithubEnabled") and (not isExcluded(repo, ServerConfig.get("GithubExcepts"))):
-        githubPrefix = ServerConfig.get("GithubPrefix")
-        githubUser = ServerConfig.get("GithubUser")
-        githubRemote = "%s@github.com:%s/%s" % (githubUser, githubPrefix, repo)
-
-        createTask = CeleryWorkers.CreateRepoGithub.si(repo, repoDesc)
-        syncTask = CeleryWorkers.SyncRepo.si(repoPath, githubRemote, True)
-        celery.chain(createTask, syncTask)()
-
-    # now spawn all push to anongit tasks
-    if ServerConfig.get("AnongitEnabled") and (not isExcluded(repo, ServerConfig.get("AnongitExcepts"))):
-        anonUser = ServerConfig.get("AnongitUser")
-        anonPrefix = ServerConfig.get("AnongitPrefix")
-        for server in ServerConfig.get("AnongitServers"):
-            anonRemote = "%s@%s:%s/%s" % (anonUser, server, anonPrefix, repo)
-
-            createTask = CeleryWorkers.CreateRepoAnongit.si(repo, server, repoDesc)
-            syncTask = CeleryWorkers.SyncRepo.si(repoPath, anonRemote, False)
-            celery.chain(createTask, syncTask)()
-
-def DeleteRepo(repo, upSpec):
-
-    if ServerConfig.get("GithubEnabled") and (not isExcluded(repo, ServerConfig.get("GithubExcepts"))):
-        CeleryWorkers.DeleteRepoGithub.delay(repo)
-
-    if ServerConfig.get("AnongitEnabled") and (not isExcluded(repo, ServerConfig.get("AnongitExcepts"))):
-        for server in ServerConfig.get("AnongitServers"):
-            CeleryWorkers.DeleteRepoAnongit.delay(repo, server)
+# protocol parse helpers
 
 def ParseCommand(cmdString):
 
@@ -202,10 +120,10 @@ def ParseCommand(cmdString):
 def ExecuteCommand(context):
 
     if context.action == "create":
-        CreateRepo(context.arguments.get("srcRepo"), context.upstream)
+        dispatcher.createRepo(context.arguments.get("srcRepo"), ident = context.upstream)
     elif context.action == "update":
-        UpdateRepo(context.arguments.get("srcRepo"), context.upstream)
+        dispatcher.updateRepo(context.arguments.get("srcRepo"), ident = context.upstream)
     elif context.action == "delete":
-        DeleteRepo(context.arguments.get("srcRepo"), context.upstream)
+        dispatcher.deleteRepo(context.arguments.get("srcRepo"), ident = context.upstream)
     elif context.action == "rename":
-        RenameRepo(context.arguments.get("srcRepo"), context.arguments.get("destRepo"), context.upstream)
+        dispatcher.moveRepo(context.arguments.get("srcRepo"), context.arguments.get("destRepo"), ident = context.upstream)

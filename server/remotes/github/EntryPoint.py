@@ -1,0 +1,2 @@
+def getTaskMap():
+    return {}
