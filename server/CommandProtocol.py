@@ -29,11 +29,11 @@
 
 # Protocol Description:
 #
-# CREATE reponame - create reponame.git on server and mirrors
-# RENAME oldrepo newrepo - move/rename oldrepo.git to newrepo.git
-# UPDATE reponame - sync reponame.git with its mirrors
-# DELETE reponame - delete reponame.git
-# FLUSH - try to commit all pending updates
+# create reponame - create reponame.git on server and mirrors
+# move oldrepo newrepo - move/move oldrepo.git to newrepo.git
+# update reponame - sync reponame.git with its mirrors
+# delete reponame - delete reponame.git
+# flush - try to commit all pending updates
 
 import os
 import shlex
@@ -75,7 +75,7 @@ def ParseCommand(cmdString):
     components = shlex.split(cmdString)
     action = components[0].lower()
 
-    if not action in ("create", "rename", "delete", "update"):
+    if not action in ("create", "move", "delete", "update"):
         raise InvalidActionException(action)
     ActionCommand = namedtuple("ActionCommand", ["action", "arguments", "upstream"])
 
@@ -106,11 +106,11 @@ def ParseCommand(cmdString):
             upstream = components[2]
         except IndexError:
             upstream = None
-    elif action == "rename":
+    elif action == "move":
         try:
             args = { "srcRepo": components[1], "destRepo": components[2] }
         except IndexError:
-            raise InvalidCommandException("rename command does not contain source and/or destination repository details", cmdString)
+            raise InvalidCommandException("move command does not contain source and/or destination repository details", cmdString)
         try:
             upstream = components[3]
         except IndexError:
@@ -125,5 +125,5 @@ def ExecuteCommand(context):
         dispatcher.updateRepo(context.arguments.get("srcRepo"), ident = context.upstream)
     elif context.action == "delete":
         dispatcher.deleteRepo(context.arguments.get("srcRepo"), ident = context.upstream)
-    elif context.action == "rename":
+    elif context.action == "move":
         dispatcher.moveRepo(context.arguments.get("srcRepo"), context.arguments.get("destRepo"), ident = context.upstream)

@@ -38,6 +38,7 @@ except ImportError:
     import json
 
 from ServerConfig import ServerConfig
+from SyncJob import doSync
 
 class RemoteLoader(object):
 
@@ -58,8 +59,12 @@ class RemoteLoader(object):
                 pluginPath = os.path.join(searchPath, pluginDir)
                 pluginName, pluginEntry = self.loadPlugin(pluginPath)
                 if pluginName:
+                    if pluginEntry["meta"].get("pushtype") == "restricted":
+                        syncFunc = lambda src, dest: doSync(src, dest, True)
+                    else:
+                        syncFunc = lambda src, dest: doSync(src, dest, False)
                     self.mLoadedPlugins[pluginName] = pluginEntry
-                    self.mTaskMap[pluginName] = pluginEntry.get("instance").getTaskMap()
+                    self.mTaskMap[pluginName] = pluginEntry.get("instance").createTaskMap(syncFunc)
                     self.mLogger.info("    loaded plugin: {0}".format(pluginName))
         self.mLogger.info("done loading remote management plugins")
 

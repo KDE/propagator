@@ -89,13 +89,13 @@ def ComputeCommand(results):
 
     cmd = results.command.lower()
     if cmd == "create":
-        return "CREATE {0}\r\n".format(results.name)
+        return "create {0}\r\n".format(results.name)
     elif cmd == "update":
-        return "UPDATE {0}\r\n".format(results.name)
+        return "update {0}\r\n".format(results.name)
     elif cmd == "create":
-        return "DELETE {0}\r\n".format(results.name)
-    elif cmd == "rename":
-        return "RENAME {0} {1}\r\n".format(results.name, results.destination)
+        return "delete {0}\r\n".format(results.name)
+    elif cmd == "move":
+        return "move {0} {1}\r\n".format(results.name, results.destination)
     else:
         return None
 
@@ -115,10 +115,10 @@ def ParseArguments():
     pCreate = subparsers.add_parser("create", help = "create repos on mirrors for already existing repo on the master server")
     pCreate.add_argument("name", type = str, help = "the name of the repo to create, without path, with trailing .git")
 
-    # subparser for repo rename
-    pRename = subparsers.add_parser("rename", help = "rename a repo on all mirrors")
-    pRename.add_argument("name", type = str, help = "the source repo, without path, with trailing .git")
-    pRename.add_argument("destination", type = str, help = "the destination repo, without path, with trailing .git")
+    # subparser for repo move
+    pmove = subparsers.add_parser("move", help = "move a repo on all mirrors")
+    pmove.add_argument("name", type = str, help = "the source repo, without path, with trailing .git")
+    pmove.add_argument("destination", type = str, help = "the destination repo, without path, with trailing .git")
 
     # subparser for repo update
     pUpdate = subparsers.add_parser("update", help = "push updates to all repo mirrors")
@@ -132,7 +132,7 @@ def ParseArguments():
     results = parser.parse_args()
 
     # if invalid or no subcommand was supplied, the invocation is invalid
-    if not results.command or results.command.lower() not in ("create", "rename", "update", "delete"):
+    if not results.command or results.command.lower() not in ("create", "move", "update", "delete"):
         parser.print_help()
         sys.exit(1)
 

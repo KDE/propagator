@@ -59,15 +59,16 @@ class RedisConsumer(object):
         plugin, taskid = task.get("jobclass").split(":")
         try:
             func = RemotePlugins.taskFunction(plugin, taskid)
-            ret = func(tasks.get("arguments"))
+            ret = func(task.get("arguments"))
         except Exception:
             task["return"] = None
-            task["success"] = False
+            task["except"] = True
             task["traceback"] = traceback.format_exc()
+            self.mLogger.exception()
             self.mRedisConn.rpush(self.mFailedQueueKey, json.dumps(task))
         else:
             task["return"] = ret
-            task["success"] = True
+            task["except"] = False
             self.mRedisConn.rpush(self.mDoneQueueKey, json.dumps(task))
 
     def runProcessLoop(self):

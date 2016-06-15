@@ -105,4 +105,5 @@ class SyncedJSONDict(collections.UserDict):
             raise TypeError
 
 # load the main propagator configuration
-ServerConfig = SyncedJSONDict(os.environ.get("GATOR_CONFIG_FILE"))
+ConfigPath = os.path.join(os.environ.get("GATOR_CONFIG_PATH"), "MasterConfig.json")
+ServerConfig = SyncedJSONDict(ConfigPath)

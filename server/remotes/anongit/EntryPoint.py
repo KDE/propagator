@@ -1,2 +1,2 @@
-def getTaskMap():
+def createTaskMap(hello):
     return {}
