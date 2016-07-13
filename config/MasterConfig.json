@@ -3,27 +3,6 @@
     "ServerListenPort": 58192,
     "ControlListenIP": "::1",
     "ControlListenPort": 58193,
-    "RepoRoot": "/home/bg14ina/testRepos/",
-
-    "GithubEnabled": false,
-    "GithubPrefix": "kde",
-    "GithubUser": "git",
-    "GithubOrganization": "kde",
-    "GithubAPIKeyFile": "",
-
-    "AnongitEnabled": false,
-    "AnongitPrefix": "repos",
-    "AnongitUser": "git",
-    "AnongitAPIKeyFile": "~/GatorAgent",
-    "AnongitServers": [
-        "89.248.108.131"
-    ],
-
-    "GithubExcepts": [
-        "gitolite-admin.git",
-        "scratch/*",
-        "websites/*",
-        "clones/*"
-    ],
-    "AnongitExcepts": []
+    "RedisQueueKey": "GatorQueue",
+    "RepoRoot": "/home/bg14ina/testRepos/"
 }

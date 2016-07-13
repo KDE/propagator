@@ -37,6 +37,7 @@ from redis import Redis
 from logbook import Logger
 
 from RemoteControl import RemotePlugins
+from ServerConfig import ServerConfig
 
 try:
     import simplejson as json
@@ -46,11 +47,16 @@ except ImportError:
 class RedisConsumer(object):
 
     def __init__(self, qkey, host = "localhost", port = 6379, db = 0, password = None):
-        self.mLogger = Logger("RedisConsumer")
+        self.mLogger = Logger(__class__.__name__)
         self.mRedisConn = Redis(host = host, port = port, db = db, password = password)
         self.mTaskQueueKey = "{}-IncomingTasks".format(qkey)
         self.mFailedQueueKey = "{}-FailedTasks".format(qkey)
         self.mDoneQueueKey = "{}-DoneTasks".format(qkey)
+
+        self.mLogger.info("redis task queue keys are:")
+        self.mLogger.info("    incoming: {}".format(self.mTaskQueueKey))
+        self.mLogger.info("    done:     {}".format(self.mDoneQueueKey))
+        self.mLogger.info("    failed:   {}".format(self.mFailedQueueKey))
 
     def runSingleTask(self):
         queueKey, taskJson = (i.decode() for i in self.mRedisConn.blpop(self.mTaskQueueKey))
@@ -77,9 +83,10 @@ class RedisConsumer(object):
 
 def CmdlineParse():
 
-    parser = argparse.ArgumentParser(prog = "TaskServer.py", description = "Server to process tasks created by the propagator daemon")
-    parser.add_argument("-e", "--eid", dest = "eid", action = "store", default = os.getpid(), help = "set an identifier for the server, for logging purposes (default is pid)")
-
+    parser = argparse.ArgumentParser(prog = "TaskServer.py",
+        description = "Server to process tasks created by the propagator daemon")
+    parser.add_argument("-e", "--eid", dest = "eid", action = "store", default = os.getpid(),
+        help = "set an identifier for the server, for logging purposes (default is pid)")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -95,7 +102,5 @@ if __name__ == "__main__":
     # start up
     logger.info("starting...")
     from RemoteControl import RemotePlugins
-    print(RemotePlugins.listLoadedPlugins())
-
-    consumer = RedisConsumer("redis-experiment")
+    consumer = RedisConsumer(ServerConfig.get("RedisQueueKey", "GatorDefault"))
     consumer.runProcessLoop()
