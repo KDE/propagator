@@ -27,6 +27,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import re
 import os
 import sys
 import requests
@@ -44,6 +45,7 @@ class GithubPlugin(object):
             cfgDict = json.load(f)
             self.mAccessToken = cfgDict.get("accesstoken")
             self.mGithubOrg = cfgDict.get("organization")
+            self.mExceptChecks = [ re.compile(i) for i in cfgDict.get("excepts") ]
 
         mcfgPath = os.path.join(os.environ.get("GATOR_CONFIG_PATH"), "MasterConfig.json")
         with open(mcfgPath) as f:
@@ -84,7 +86,17 @@ class GithubPlugin(object):
         return ((r.ok) and ("id" in r.json.keys()))
 
     def createRepo(self, args):
-        reponame = self.stripRepoName(args.get("repo"))
+        reponame = args.get("repo")
+        for i in self.mExceptChecks:
+            if i.match(reponame):
+                return True
+        reponame = self.stripRepoName(reponame)
+
+        # if the repo already exists and create if exists is false, exit early
+        if not args.get("ifexists") and self.repoExists(reponame):
+            return True
+
+        # build up the create request and execute it
         payload = {
             "name": reponame,
             "description": args.get("desc", "This repository has no description"),
@@ -94,18 +106,16 @@ class GithubPlugin(object):
             "has_downloads": False,
             "auto_init": False,
         }
-
-        # if the repo already exists and create if exists is false, exit early
-        if not args.get("ifexists") and self.repoExists(reponame):
-            return True
-
-        # build up the create request and execute it
         url = "{0}/{1}/{2}".format(self.mOrgsEndpoint, self.mGithubOrg, "repos")
         r = self.mSession.post(url, data = json.dumps(payload))
         return ((r.status_code == 201) and ("id" in r.json.keys()))
 
     def moveRepo(self, args):
-        oldname = self.stripRepoName(args.get("repo"))
+        oldname = args.get("repo")
+        for i in self.mExceptChecks:
+            if i.match(oldname):
+                return True
+        oldname = self.stripRepoName(oldname)
         newname = self.stripRepoName(args.get("dest"))
         payload = { "name": newname }
         url = "{0}/{1}/{2}".format(self.mReposEndpoint, self.mGithubOrg, oldname)
@@ -113,21 +123,33 @@ class GithubPlugin(object):
         return ((r.status_code == 201) and ("id" in r.json.keys()))
 
     def syncRepo(self, args):
-        srcdir = os.path.join(self.mRepoBase, args.get("repo"))
-        desturl = "git@github.com:{0}/{1}".format(self.mGithubOrg, args.get("repo"))
+        reponame = args.get("repo")
+        for i in self.mExceptChecks:
+            if i.match(reponame):
+                return True
+        srcdir = os.path.join(self.mRepoBase, reponame)
+        desturl = "git@github.com:{0}/{1}".format(self.mGithubOrg, reponame)
         self.createRepo(args)
         return self.mSyncFunc(srcdir, desturl)
 
     def deleteRepo(self, args):
-        repo = self.stripRepoName(args.get("repo"))
-        url = "{0}/{1}/{2}".format(self.mReposEndpoint, self.mGithubOrg, repo)
+        reponame = args.get("repo")
+        for i in self.mExceptChecks:
+            if i.match(reponame):
+                return True
+        reponame = self.stripRepoName(reponame)
+        url = "{0}/{1}/{2}".format(self.mReposEndpoint, self.mGithubOrg, reponame)
         r = self.mSession.delete(url)
         return (r.status_code == 204)
 
     def setRepoDescription(self, args):
-        repo = self.stripRepoName(args.get("repo"))
+        reponame = args.get("repo")
+        for i in self.mExceptChecks:
+            if i.match(reponame):
+                return True
+        reponame = self.stripRepoName(reponame)
         payload = { "description": desc }
-        url = "{0}/{1}/{2}".format(self.mReposEndpoint, self.mGithubOrg, repo)
+        url = "{0}/{1}/{2}".format(self.mReposEndpoint, self.mGithubOrg, reponame)
         r = self.mSession.patch(url, data = json.dumps(payload))
         return ((r.status_code == 201) and ("id" in r.json.keys()))
 
