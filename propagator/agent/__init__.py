@@ -53,4 +53,4 @@ def main():
         gitcmd.handle_command(cmd)
         sys.exit(192)
     else:
-        print("ERROR: This command cannot be accepted. This account does not provide shell access", file = sys.stderr)
+        print("ERROR: Invalid command. This account does not provide shell access", file = sys.stderr)
