@@ -1,7 +1,6 @@
-#!/usr/bin/python3
-# This file is part of Propagator, a KDE Sysadmin Project
+# This file is part of Propagator, a KDE project
 #
-#   Copyright 2015-2016 (C) Boudhayan Gupta <bgupta@kde.org>
+# Copyright 2015 Boudhayan Gupta <bgupta@kde.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,17 +27,26 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import sys
-import tornado.ioloop
+import configparser
+import os
 
-# set up logging
-from logbook import StreamHandler
-StreamHandler(sys.stdout).push_application()
+def repobase():
+    default = os.path.expanduser("~/repositories")
+    cfgpath = os.path.expanduser("~/.propagator/anongit.cfg")
+    try:
+        config = configparser.ConfigParser()
+        config.read(cfgpath)
+        path = config["anongit"].get("repobase", default)
+        return os.path.expanduser(path)
+    except:
+        return default
 
-# start the command server
-import CommandServer
-cmdServer = CommandServer.CommandServer()
-cmdServer.listen(58192, "::1")
-
-# start the ioloop
-tornado.ioloop.IOLoop.current().start()
+def translate_path(path):
+    path = os.path.normpath(path)
+    if path.startswith(".."):
+        head, tail = os.path.split(path)
+        if not tail:
+            return None
+        path = tail
+    joined = os.path.join(repobase(), path)
+    return os.path.normpath(joined)

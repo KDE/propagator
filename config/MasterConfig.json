@@ -1,8 +1,0 @@
-{
-    "ServerListenIP": "::1",
-    "ServerListenPort": 58192,
-    "ControlListenIP": "::1",
-    "ControlListenPort": 58193,
-    "RedisQueueKey": "GatorQueue",
-    "RepoRoot": "/home/bg14ina/testRepos/"
-}

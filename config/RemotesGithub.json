@@ -1,9 +1,0 @@
-{
-    "organization": "BaloneyGeekCorp",
-    "accesstoken": "dummytoken",
-
-    "excepts": [
-        "^gitolite-admin.git$",
-        "([a-zA-Z0-9]*)/(.*)"
-    ]
-}

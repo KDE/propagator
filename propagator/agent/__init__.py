@@ -1,6 +1,6 @@
-# This file is part of Propagator, a KDE Sysadmin Project
+# This file is part of Propagator, a KDE project
 #
-#   Copyright (C) 2015-2016 Boudhayan Gupta <bgupta@kde.org>
+# Copyright 2015 Boudhayan Gupta <bgupta@kde.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -27,22 +27,30 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import os
 import sys
+import shlex
 
-import tornado.tcpserver
-import tornado.gen
+from . import config
+from . import repo
+from . import gitcmd
+from . import control
 
-from CommandProtocol import ParseCommand, ExecuteCommand
-from CommandProtocol import PropagatorProtocolException
+def main():
+    cmd = os.environ.get("SSH_ORIGINAL_COMMAND")
+    if not cmd:
+        print("Sorry, this account does not provide shell access.")
+        sys.exit(1)
 
-class CommandServer(tornado.tcpserver.TCPServer):
-
-    @tornado.gen.coroutine
-    def handle_stream(self, stream, address):
-        data = yield stream.read_until_close()
-        try:
-            context = ParseCommand(data.decode().strip())
-        except PropagatorProtocolException as exc:
-            sys.stderr.write(exc.logline())
-            return
-        ExecuteCommand(context)
+    entry = shlex.split(cmd)[0]
+    if entry == "anongitctl":
+        if not control.handle_command(cmd):
+            print("FAIL")
+            sys.exit(192)
+        print("OK")
+        sys.exit(0)
+    elif entry in ("git-receive-pack", "git-upload-pack", "git-upload-archive"):
+        gitcmd.handle_command(cmd)
+        sys.exit(192)
+    else:
+        print("ERROR: This command cannot be accepted. This account does not provide shell access", file = sys.stderr)

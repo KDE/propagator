@@ -1,4 +1,4 @@
-# This file is part of Propagator, a KDE Sysadmin Project
+# This file is part of Propagator, a KDE project
 #
 # Copyright 2015 Boudhayan Gupta <bgupta@kde.org>
 #
@@ -28,37 +28,32 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import git
+import os
 
-def doSync(src, dest, restricted = False):
+def create(path, exists = True):
+    try:
+        repo = git.Repo(path)
+    except git.exc.NoSuchPathError:
+        git.Repo.init(path, bare = True)
+        return True
+    except git.exc.InvalidGitRepositoryError:
+        if not os.listdir(path):
+            git.Repo.init(path, bare = True)
+            return True
+        print("ERROR: The remote path is not a valid git repository.")
+        return False
+    if not repo.bare:
+        print("ERROR: The remote repository is not bare. Cannot push.")
+        return False
+    if not exists:
+        print("ERROR: The remote repository already exists.")
+    return exists
 
-    # init the git repo and remote objects first
-
-    repo = git.Repo(src)
-    remote = git.Remote(repo, dest)
-
-    # if we're doing a restricted push, we only update branches and tags.
-    # everything else needs to be ignored
-
-    refs = []
-
-    if (restricted):
-        ret = remote.push(("--mirror", "--dry-run"))
-        for info in ret:
-            # check if the local ref is either a head or a tag
-            if type(info.local_ref) in (git.refs.Head, git.refs.TagReference):
-                refs.append("".join(("+", info.local_ref.name, ":", info.remote_ref_string)))
-
-    # do the push
-
-    ret = None
-    if (refs):
-        ret = remote.push(refs)
-    else:
-        ret = remote.push("--mirror")
-
-    # analyse the results and return success or failure
-
-    for info in st:
-        if (info.flags & git.PushInfo.ERROR):
-            return False
+def set_repo_description(path, desc):
+    descfile = os.path.join(path, "description")
+    if not os.path.isfile(descfile):
+        print("ERROR: Invalid or non-existent repository. Cannot find description file.")
+        return False
+    with open(descfile, "w") as f:
+        print(desc.strip(), file = f)
     return True
