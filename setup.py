@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name             = "propagator",
-    version          = "1.0.0",
+    version          = "0.1.0",
     author           = "Boudhayan Gupta",
     author_email     = "bgupta@kde.org",
     description      = ("A git mirror fleet manager"),
@@ -16,6 +16,8 @@ setup(
     classifiers      = (
         "Development Status :: 4 - Beta",
         "License :: OSI Approved :: BSD License",
+        "Topic :: Software Development :: Version Control",
+        "Topic :: System :: Software Distribution"
     ),
     entry_points     = {
         "console_scripts": (
