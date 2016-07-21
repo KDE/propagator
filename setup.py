@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name             = "propagator",
-    version          = "0.1.0",
+    version          = "0.1.95",
     author           = "Boudhayan Gupta",
     author_email     = "bgupta@kde.org",
     description      = ("A git mirror fleet manager"),
@@ -11,7 +11,10 @@ setup(
     url              = "http://www.kde.org/",
     packages         = find_packages(),
     install_requires = (
+        "simplejson",
         "GitPython",
+        "redis",
+        "logbook",
     ),
     classifiers      = (
         "Development Status :: 4 - Beta",
