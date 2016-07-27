@@ -1,5 +1,6 @@
 [general]
 repobase=/srv/git
+logs_dir=~/.propagator/logs
 
 [smtp]
 host=localhost

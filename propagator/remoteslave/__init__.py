@@ -27,14 +27,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os
 import sys
 import argparse
-import importlib
 import logbook
 
-from propagator import VERSION
 from propagator.remoteslave import amqp
+from propagator.remoteslave.slavecore import SlaveCore
 
 def cmdline_process():
     parser = argparse.ArgumentParser(description = "Run a Propagator Remote Slave")
@@ -43,29 +41,7 @@ def cmdline_process():
     return args.remotename
 
 def main():
-    # initialise logging
     logbook.StreamHandler(sys.stdout).push_application()
-    log = logbook.Logger("RemoteSlave-{}".format(str(os.getpid())))
-
-    # process the command line and figure out which remote plugin we want to run
     remote_name = cmdline_process()
-    log.info("This is KDE Propagator {} - Remote Slave".format(VERSION))
-    log.info("    Starting...")
-    log.info("remote plugin requested: {}".format(remote_name))
-    plugin_name = "propagator.remotes.{}".format(remote_name)
-    try:
-        remote = importlib.import_module(plugin_name)
-    except ImportError:
-        log.critical("remote plugin not found: {}".format(remote_name))
-        log.critical("this slave will now exit.")
-        sys.exit(1)
-    log.info("loaded remote plugin: {}".format(remote_name))
-
-    print(" [*] Waiting for logs. To exit press CTRL+C")
-    #channel = amqp.create_channel_consumer("logs")
-    #channel.basic_consume(callback, amqp.queue_name_for_slave("logs"))
-    #channel.start_consuming()
-
-def callback(ch, method, properties, body):
-    ch.basic_ack(method.delivery_tag)
-    print(" [x] %r" % body)
+    worker = SlaveCore(remote_name)
+    worker()
