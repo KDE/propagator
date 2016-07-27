@@ -28,11 +28,11 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import abc
-import logbook
+from logbook import Logger
 
 class RemoteBase(abc.ABC):
     def __init__(self):
-        self.logger = logbook.Logger(self.plugin_name)
+        self.logger = Logger(self.plugin_name)
         self.plugin_init()
 
     @abc.abstractproperty

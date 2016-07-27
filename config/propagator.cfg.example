@@ -1,0 +1,9 @@
+[general]
+repobase=/srv/git
+
+[smtp]
+host=localhost
+port=25
+auth=no
+user=none
+pass=none

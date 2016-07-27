@@ -13,7 +13,7 @@ setup(
     install_requires = (
         "simplejson",
         "GitPython",
-        "redis",
+        "pika",
         "logbook",
     ),
     classifiers      = (
@@ -25,6 +25,7 @@ setup(
     entry_points     = {
         "console_scripts": (
             "propagator-agent = propagator.agent:main",
+            "propagator-remoteslave = propagator.remoteslave:main"
         ),
     },
 )

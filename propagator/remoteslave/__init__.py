@@ -27,35 +27,45 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import configparser
 import os
 import sys
+import argparse
+import importlib
+import logbook
 
-# initialise the logger
-from logbook import Logger
-log = Logger("CoreConfig")
+from propagator import VERSION
+from propagator.remoteslave import amqp
 
-# try loading in the configuration
-CONFIG_PATH = os.path.expanduser("~/.propagator/propagator.cfg")
-try:
-    CONFIG_CFGP = configparser.ConfigParser()
-    CONFIG_CFGP.read(CONFIG_PATH)
-except:
-    log.exception()
-    sys.exit(1)
+def cmdline_process():
+    parser = argparse.ArgumentParser(description = "Run a Propagator Remote Slave")
+    parser.add_argument("remotename", type = str, help = "Start a slave for this remote type")
+    args = parser.parse_args()
+    return args.remotename
 
-# exported log sections
-try:
-    config_general = CONFIG_CFGP["general"]
-except KeyError:
-    config_general = {}
+def main():
+    # initialise logging
+    logbook.StreamHandler(sys.stdout).push_application()
+    log = logbook.Logger("RemoteSlave-{}".format(str(os.getpid())))
 
-try:
-    config_smtp = CONFIG_CFGP["smtp"]
-except KeyError:
-    config_smtp = {}
+    # process the command line and figure out which remote plugin we want to run
+    remote_name = cmdline_process()
+    log.info("This is KDE Propagator {} - Remote Slave".format(VERSION))
+    log.info("    Starting...")
+    log.info("remote plugin requested: {}".format(remote_name))
+    plugin_name = "propagator.remotes.{}".format(remote_name)
+    try:
+        remote = importlib.import_module(plugin_name)
+    except ImportError:
+        log.critical("remote plugin not found: {}".format(remote_name))
+        log.critical("this slave will now exit.")
+        sys.exit(1)
+    log.info("loaded remote plugin: {}".format(remote_name))
 
-try:
-    config_amqp = CONFIG_CFGP["amqp"]
-except KeyError:
-    config_amqp = {}
+    print(" [*] Waiting for logs. To exit press CTRL+C")
+    #channel = amqp.create_channel_consumer("logs")
+    #channel.basic_consume(callback, amqp.queue_name_for_slave("logs"))
+    #channel.start_consuming()
+
+def callback(ch, method, properties, body):
+    ch.basic_ack(method.delivery_tag)
+    print(" [x] %r" % body)
