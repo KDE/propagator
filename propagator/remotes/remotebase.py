@@ -44,21 +44,25 @@ class RemoteBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def create(self, args):
+    def can_handle_repo(self, name):
         pass
 
     @abc.abstractmethod
-    def rename(self, args):
+    def create(self, name, desc):
         pass
 
     @abc.abstractmethod
-    def update(self, args):
+    def rename(self, name, dest):
         pass
 
     @abc.abstractmethod
-    def delete(self, args):
+    def update(self, repo, name):
         pass
 
     @abc.abstractmethod
-    def setdesc(self, args):
+    def delete(self, name):
+        pass
+
+    @abc.abstractmethod
+    def setdesc(self, name, desc):
         pass

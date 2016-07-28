@@ -1,6 +1,6 @@
 # This file is part of Propagator, a KDE Sysadmin Project
 #
-#   Copyright (C) 2015-2016 Boudhayan Gupta <bgupta@kde.org>
+# Copyright 2015 Boudhayan Gupta <bgupta@kde.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -27,36 +27,15 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from propagator.remotes.remotebase import RemoteBase
+import git
+import os
 
-class Remote(RemoteBase):
-    def __init__(self, opslog):
-        self.logger = opslog
-        self.plugin_init()
+from propagator.core.config import config_general
 
-    @property
-    def plugin_name(self):
-        return "dummy"
-
-    def plugin_init(self, *args, **kwargs):
-        self.logger.info("loaded dummy plugin")
-        print("loaded dummy plugin")
-
-    def can_handle_repo(self, name):
-        return True
-
-    def create(self, name, desc):
-        print("create repo - {}, {}".format(name, desc))
-
-    def rename(self, name, dest):
-        print("rename repo - {}, {}".format(name, dest))
-
-    def update(self, repo, name):
-        print("update repo - {}".format(name))
-        raise Exception
-
-    def delete(self, name):
-        print("delete repo - {}".format(name))
-
-    def setdesc(self, name, desc):
-        print("set repo desc: {}, {}".format(name, desc))
+def is_valid_repo(repo):
+    path = os.path.join(config_general.get("repobase"), repo)
+    try:
+        repo = git.Repo(path)
+    except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):
+        return False
+    return True

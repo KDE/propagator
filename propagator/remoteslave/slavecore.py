@@ -55,8 +55,8 @@ class SlaveCore(object):
         self.opslog = self.init_slave_logger(slave_name)
         self.remote = self.init_slave_module(slave_name).Remote(self.opslog)
         self.repobase = config_general.get("repobase")
-        self.max_retries = config_general.get("max_retries", 5)
-        self.retry_step = config_general.get("retry_interval_step", 300) * 1000
+        self.max_retries = int(config_general.get("max_retries", 5))
+        self.retry_step = int(config_general.get("retry_interval_step", 300)) * 1000
         self.slave_name = slave_name
 
         # set up the amqp channel, and bind it to the consumer callback
@@ -116,7 +116,7 @@ class SlaveCore(object):
 
         # check if message is conditional to only one slave
         remote_for = data.get("remote_for")
-        if remote_for not in (None, self.slave_name):
+        if (remote_for is not None) and (self.slave_name not in remote_for):
             self.log.debug("skipped conditional task not meant for this slave: {}".format(body))
             channel.basic_ack(method.delivery_tag)
             return
@@ -143,7 +143,7 @@ class SlaveCore(object):
             return
 
         # check if the source repo is valid and exists
-        repo = get_repo(repo)
+        repo = self.get_repo(repo)
         if not repo and op != "delete":
             self.log.error("invalid repository: {}".format(body))
             channel.basic_ack(method.delivery_tag)

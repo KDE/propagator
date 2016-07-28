@@ -25,7 +25,8 @@ setup(
     entry_points     = {
         "console_scripts": (
             "propagator-agent = propagator.agent:main",
-            "propagator-remoteslave = propagator.remoteslave:main"
+            "propagator-remoteslave = propagator.remoteslave:main",
+            "propagator-mirrorsync = propagator.utils.mirrorsync:main"
         ),
     },
 )

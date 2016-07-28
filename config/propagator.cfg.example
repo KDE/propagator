@@ -1,5 +1,5 @@
 [general]
-repobase=/srv/git
+repobase=/home/bg14ina/KDE
 logs_dir=~/.propagator/logs
 max_retries = 5
 retry_interval_step = 10

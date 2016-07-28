@@ -30,17 +30,43 @@
 import sys
 import argparse
 
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
+from propagator.utils.common import is_valid_repo
 from propagator.remoteslave import amqp
-from propagator.remoteslave.slavecore import SlaveCore
 
 def cmdline_process():
     parser = argparse.ArgumentParser(description = "Sync updates to all repository mirrors through Propagator")
     parser.add_argument("reponame", type = str, help = "the name of the repository to update")
-    parser.add_argument("remotename", type = str, nargs = "*", help = "update only these remotes")
-    parser.add_argument("-v", "--verbose", type = bool, default = False, help = "give verbose output on the standard output")
+    parser.add_argument("remote", type = str, nargs = "*", help = "update only these remotes")
+    parser.add_argument("-v", "--verbose", action = "store_true", help = "give verbose output on the standard output")
     args = parser.parse_args()
     return args
 
+def send_message(payload):
+    body = json.dumps(payload)
+    channel = amqp.create_channel_producer()
+    return channel.basic_publish(
+        exchange = amqp.exchange_name(),
+        routing_key = "",
+        body = body
+    )
+
 def main():
     args = cmdline_process()
-    print(args)
+    if not (is_valid_repo(args.reponame)):
+        print("ERROR: {} is not a valid repository".format(args.reponame), file = sys.stderr)
+        sys.exit(1)
+    message = { "operation": "update", "repository": args.reponame, "attempt": 0 }
+    if args.remote:
+        message["remote_for"] = parser.remote
+    ret = send_message(message)
+    if not ret:
+        print("ERROR: Failed to notify Propagator to update repository mirrors")
+        sys.exit(1)
+    if args.verbose:
+        print("Successfully notified Propagator to update repository mirrors")
+    sys.exit(0)
