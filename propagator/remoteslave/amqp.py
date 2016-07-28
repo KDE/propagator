@@ -30,8 +30,10 @@
 import pika
 from propagator.core.config import config_amqp
 
-queue_name_for_slave = lambda slave_name: ".".join(("propagator", "slave", slave_name))
-exchange_name = lambda: "propagator"
+queue_name_for_slave = lambda slave_name: "propagator.slave.{}".format(slave_name)
+delay_queue_name_for_slave = lambda slave_name: "propagator.slave.{}.delay".format(slave_name)
+exchange_name = lambda: "propagator.exchange.master"
+delay_exchange_name = lambda: "propagator.exchange.delay"
 
 def create_channel():
     # get the relevant configuration and set sane defaults
@@ -63,6 +65,15 @@ def prepare_channel_consumer(channel, slave_name):
     queue_name = queue_name_for_slave(slave_name)
     channel.queue_declare(queue = queue_name, auto_delete = True)
     channel.queue_bind(queue = queue_name, exchange = exchange_name())
+
+    # ...and the dead-letter exchange
+    delay_queue_name = delay_queue_name_for_slave(slave_name)
+    channel.exchange_declare(exchange = delay_exchange_name(), exchange_type = "direct", auto_delete = True)
+    channel.queue_declare(queue = delay_queue_name, durable = True, arguments = {
+        "x-dead-letter-exchange": delay_exchange_name(),
+        "x-dead-letter-routing-key": queue_name
+    })
+    channel.queue_bind(queue = queue_name, exchange = delay_exchange_name(), routing_key = queue_name)
 
     # done, return channel
     return channel

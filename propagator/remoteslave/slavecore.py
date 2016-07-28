@@ -29,9 +29,16 @@
 
 import sys
 import os
+import git
+import pika
 import signal
 import logbook
 import importlib
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 from propagator import VERSION as version
 from propagator.core.config import config_general
@@ -44,9 +51,13 @@ class SlaveCore(object):
         self.log.info("This is KDE Propagator {} - Remote Slave".format(version))
         self.log.info("    Starting...")
 
-        # create the operations log handler and load in the slave
+        # create the operations log handler and load in the slave, and other things
         self.opslog = self.init_slave_logger(slave_name)
-        self.remote = self.init_slave_module(slave_name)
+        self.remote = self.init_slave_module(slave_name).Remote(self.opslog)
+        self.repobase = config_general.get("repobase")
+        self.max_retries = config_general.get("max_retries", 5)
+        self.retry_step = config_general.get("retry_interval_step", 300) * 1000
+        self.slave_name = slave_name
 
         # set up the amqp channel, and bind it to the consumer callback
         self.channel = amqp.create_channel_consumer(slave_name)
@@ -55,8 +66,6 @@ class SlaveCore(object):
     def __call__(self):
         # set up sigterm to also raise KeyboardInterrupt
         signal.signal(signal.SIGTERM, signal.getsignal(signal.SIGINT))
-
-        # run the main loop
         self.log.info("listening for new tasks...")
         try:
             self.channel.start_consuming()
@@ -83,13 +92,143 @@ class SlaveCore(object):
         self.log.info("remote plugin requested: {}".format(slave_name))
         plugin_name = "propagator.remotes.{}".format(slave_name)
         try:
-            self.remote = importlib.import_module(plugin_name)
+            remote = importlib.import_module(plugin_name)
         except ImportError:
             self.log.critical("remote plugin not found: {}".format(slave_name))
             self.log.critical("this slave will now exit.")
             sys.exit(1)
         self.log.info("loaded remote plugin: {}".format(slave_name))
+        return remote
 
     def process_single_message(self, channel, method, properties, body):
-        print("[*] Body: {}".format(body))
+        if type(body) is bytes:
+            body = body.decode("utf-8")
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self.log.error("task malformed: {}".format(body))
+            channel.basic_ack(method.delivery_tag)
+            return
+
+        # check the retry count
+        if not data.get("attempt"):
+            data["attempt"] = 0;
+
+        # check if message is conditional to only one slave
+        remote_for = data.get("remote_for")
+        if remote_for not in (None, self.slave_name):
+            self.log.debug("skipped conditional task not meant for this slave: {}".format(body))
+            channel.basic_ack(method.delivery_tag)
+            return
+
+        # check for existence and validity of method
+        valid_ops = ("create", "rename", "update", "delete", "syncdesc")
+        op = data.get("operation")
+        if (not op) or (op not in valid_ops):
+            self.log.error("task malformed: invalid or no operation: {}".format(body))
+            channel.basic_ack(method.delivery_tag)
+            return
+
+        # check for source repo in message
+        repo = data.get("repository")
+        if not repo:
+            self.log.error("task malformed: no repository: {}".format(body))
+            channel.basic_ack(method.delivery_tag)
+            return
+
+        # check if the repo can be handled by this repo
+        if not self.remote.can_handle_repo(repo):
+            self.log.debug("repository cannot be handled by this repo, skipping: {}".format(body))
+            channel.basic_ack(method.delivery_tag)
+            return
+
+        # check if the source repo is valid and exists
+        repo = get_repo(repo)
+        if not repo and op != "delete":
+            self.log.error("invalid repository: {}".format(body))
+            channel.basic_ack(method.delivery_tag)
+            return
+
+        ret = getattr(self, "process_op_{}".format(op))(data, repo)
+        if ret is False:
+            data["attempt"] = data["attempt"] + 1
+            if data["attempt"] > self.max_retries:
+                self.fail_permanently(data)
+            else:
+                message = json.dumps(data)
+                backoff = str(self.retry_step * data["attempt"])
+                self.channel.basic_publish(
+                    exchange = "",
+                    routing_key = amqp.delay_queue_name_for_slave(self.slave_name),
+                    properties = pika.BasicProperties(expiration = backoff),
+                    body = message
+                )
         channel.basic_ack(method.delivery_tag)
+
+    def process_op_create(self, data, repo):
+        name = data.get("repository")
+        try:
+            self.remote.create(name, repo.description)
+        except Exception:
+            self.opslog.error("could not create repository: {}".format(name))
+            self.opslog.exception()
+            return False
+        self.opslog.info("created repository: {}".format(name))
+
+    def process_op_rename(self, data, repo):
+        name = data.get("repository")
+        dest = data.get("destination")
+        if not dest:
+            self.log.error("task malformed: no destination: {}".format(body))
+            return
+        try:
+            self.remote.rename(name, dest)
+        except Exception:
+            self.opslog.error("could not create repository: {}".format(name))
+            self.opslog.exception()
+            return False
+        self.opslog.info("renamed repository: {} -> {}".format(name, dest))
+
+    def process_op_update(self, data, repo):
+        name = data.get("repository")
+        if not repo.branches:
+            self.opslog.info("skipping update of empty repository: {    @abc.abstractmethod}".format(name))
+            return
+        try:
+            self.remote.update(repo, name)
+        except Exception:
+            self.opslog.error("could not update repository: {}".format(name))
+            self.opslog.exception()
+            return False
+        self.opslog.info("updated repository: {}".format(name))
+
+    def process_op_delete(self, data, repo):
+        name = data.get("repository")
+        try:
+            self.remote.delete(name)
+        except Exception:
+            self.opslog.error("could not delete repository: {}".format(name))
+            self.opslog.exception()
+            return False
+        self.opslog.info("deleted repository: {}".format(name))
+
+    def process_op_syncdesc(self, data, repo):
+        name = data.get("repository")
+        try:
+            self.remote.setdesc(name, repo.description)
+        except Exception:
+            self.opslog.error("could not sync repository description: {}".format(name))
+            self.opslog.exception()
+            return False
+        self.opslog.info("synced repository description: {}".format(name))
+
+    def get_repo(self, repo):
+        path = os.path.join(self.repobase, repo)
+        try:
+            repo = git.Repo(path)
+        except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):
+            return None
+        return repo
+
+    def fail_permanently(self, data):
+        pass

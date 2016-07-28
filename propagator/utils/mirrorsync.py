@@ -1,6 +1,6 @@
 # This file is part of Propagator, a KDE Sysadmin Project
 #
-#   Copyright (C) 2015-2016 Boudhayan Gupta <bgupta@kde.org>
+# Copyright 2015 Boudhayan Gupta <bgupta@kde.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -27,38 +27,20 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import abc
-from logbook import Logger
+import sys
+import argparse
 
-class RemoteBase(abc.ABC):
-    def __init__(self, opslog):
-        self.logger = opslog
-        self.plugin_init()
+from propagator.remoteslave import amqp
+from propagator.remoteslave.slavecore import SlaveCore
 
-    @abc.abstractproperty
-    def plugin_name(self):
-        pass
+def cmdline_process():
+    parser = argparse.ArgumentParser(description = "Sync updates to all repository mirrors through Propagator")
+    parser.add_argument("reponame", type = str, help = "the name of the repository to update")
+    parser.add_argument("remotename", type = str, nargs = "*", help = "update only these remotes")
+    parser.add_argument("-v", "--verbose", type = bool, default = False, help = "give verbose output on the standard output")
+    args = parser.parse_args()
+    return args
 
-    @abc.abstractmethod
-    def plugin_init(self, *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def create(self, args):
-        pass
-
-    @abc.abstractmethod
-    def rename(self, args):
-        pass
-
-    @abc.abstractmethod
-    def update(self, args):
-        pass
-
-    @abc.abstractmethod
-    def delete(self, args):
-        pass
-
-    @abc.abstractmethod
-    def setdesc(self, args):
-        pass
+def main():
+    args = cmdline_process()
+    print(args)

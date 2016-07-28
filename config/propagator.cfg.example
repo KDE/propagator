@@ -1,6 +1,8 @@
 [general]
 repobase=/srv/git
 logs_dir=~/.propagator/logs
+max_retries = 5
+retry_interval_step = 10
 
 [smtp]
 host=localhost

@@ -27,38 +27,33 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import abc
-from logbook import Logger
+from propagator.remotes.remotebase import RemoteBase
 
-class RemoteBase(abc.ABC):
+class Remote(RemoteBase):
     def __init__(self, opslog):
         self.logger = opslog
         self.plugin_init()
 
-    @abc.abstractproperty
+    @property
     def plugin_name(self):
-        pass
+        return "dummy"
 
-    @abc.abstractmethod
     def plugin_init(self, *args, **kwargs):
-        pass
+        self.logger.info("loaded dummy plugin")
+        print("loaded dummy plugin")
 
-    @abc.abstractmethod
-    def create(self, args):
-        pass
+    def create(self, name, desc):
+        print("create repo - {}, {}".format(name, desc))
 
-    @abc.abstractmethod
-    def rename(self, args):
-        pass
+    def rename(self, name, dest):
+        print("rename repo - {}, {}".format(name, dest))
 
-    @abc.abstractmethod
-    def update(self, args):
-        pass
+    def update(self, repo, name):
+        print("update repo - {}".format(name))
+        raise Exception
 
-    @abc.abstractmethod
-    def delete(self, args):
-        pass
+    def delete(self, name):
+        print("delete repo - {}".format(name))
 
-    @abc.abstractmethod
-    def setdesc(self, args):
-        pass
+    def setdesc(self, name, desc):
+        print("set repo desc: {}, {}".format(name, desc))
