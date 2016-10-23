@@ -15,6 +15,7 @@ setup(
         "GitPython",
         "pika",
         "logbook",
+        "circus"
     ),
     classifiers      = (
         "Development Status :: 4 - Beta",

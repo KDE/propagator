@@ -1,8 +1,8 @@
 [general]
 repobase=/home/bg14ina/KDE
 logs_dir=~/.propagator/logs
-max_retries = 5
-retry_interval_step = 10
+max_retries=5
+retry_interval_step=10
 
 [smtp]
 host=localhost

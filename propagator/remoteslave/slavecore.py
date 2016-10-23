@@ -75,8 +75,8 @@ class SlaveCore(object):
 
     def init_slave_logger(self, slave_name):
         # get the logs directory and ensure that it exists
-        default_logdir = os.path.expanduser("~/.propagator/logs")
-        logdir = config_general.get("logs_dir", default_logdir)
+        logdir = config_general.get("logs_dir", "~/.propagator/logs")
+        logdir = os.path.expanduser(logdir)
         if not os.path.isdir(logdir):
             os.makedirs(logdir)
 
@@ -192,7 +192,7 @@ class SlaveCore(object):
     def process_op_update(self, data, repo):
         name = data.get("repository")
         if not repo.branches:
-            self.opslog.info("skipping update of empty repository: {    @abc.abstractmethod}".format(name))
+            self.opslog.info("skipping update of empty repository: {}".format(name))
             return
         try:
             self.remote.update(repo, name)
