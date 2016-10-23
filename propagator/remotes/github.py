@@ -41,7 +41,7 @@ from propagator.core.sync import restricted_sync
 from propagator.core.config import config_general
 from propagator.remotes.remotebase import RemoteBase
 
-class GithubRemote(RemoteBase):
+class Remote(RemoteBase):
     ENDPOINT_REPO = "https://api.github.com/repos"
     ENDPOINT_ORGS = "https://api.github.com/orgs"
 
@@ -73,21 +73,22 @@ class GithubRemote(RemoteBase):
         r = self.session.get(url)
         return ((r.ok) and ("id" in r.json().keys()))
 
-    def create(self, args):
-        reponame = args.get("repo")
+    def can_handle_repo(self, name):
+        name = self._strip_reponame(name)
         for i in self.except_checks:
-            if i.match(reponame):
-                return True
-        reponame = self._strip_reponame(reponame)
+            if (i.match(name)): return False
+        return True
 
-        # if the repo already exists and create if exists is false, exit early
-        if not args.get("ifexists") and self._repo_exists(reponame):
-            return True
+    def create(self, name, desc = "This repository has no description"):
+        name = self._strip_reponame(name)
+
+        # if the repo already exists, exit early
+        if self._repo_exists(name): return True
 
         # build up the create request and execute it
         payload = {
-            "name": reponame,
-            "description": args.get("desc", "This repository has no description"),
+            "name": name,
+            "description": desc,
             "private": False,
             "has_issues": False,
             "has_wiki": False,
@@ -98,45 +99,30 @@ class GithubRemote(RemoteBase):
         r = self.session.post(url, data = json.dumps(payload))
         return ((r.status_code == 201) and ("id" in r.json().keys()))
 
-    def rename(self, args):
-        oldname = args.get("repo")
-        for i in self.except_checks:
-            if i.match(oldname):
-                return True
-        oldname = self._strip_reponame(oldname)
-        newname = self._strip_reponame(args.get("dest"))
-        payload = { "name": newname }
-        url = "{0}/{1}/{2}".format(self.ENDPOINT_REPO, self.organization, oldname)
+    def rename(self, name, dest):
+        name = self._strip_reponame(name)
+        dest = self._strip_reponame(dest)
+        payload = { "name": dest }
+        url = "{0}/{1}/{2}".format(self.ENDPOINT_REPO, self.organization, name)
         r = self.session.patch(url, data = json.dumps(payload))
         return ((r.status_code == 201) and ("id" in r.json().keys()))
 
-    def update(self, args):
-        reponame = args.get("repo")
-        for i in self.except_checks:
-            if i.match(reponame):
-                return True
-        srcdir = os.path.join(self.repo_base, reponame)
-        desturl = "git@github.com:{0}/{1}".format(self.organization, reponame)
-        self.create(args)
+    def update(self, repo, name):
+        srcdir = os.path.join(self.repo_base, name)
+        desturl = "git@github.com:{0}/{1}".format(self.organization, name)
+        if not self._repo_exists(name):
+            self.create(name, repo.description)
         return restricted_sync(srcdir, desturl)
 
-    def delete(self, args):
-        reponame = args.get("repo")
-        for i in self.except_checks:
-            if i.match(reponame):
-                return True
-        reponame = self._strip_reponame(reponame)
-        url = "{0}/{1}/{2}".format(self.ENDPOINT_REPO, self.organization, reponame)
+    def delete(self, name):
+        name = self._strip_reponame(name)
+        url = "{0}/{1}/{2}".format(self.ENDPOINT_REPO, self.organization, name)
         r = self.session.delete(url)
         return (r.status_code == 204)
 
-    def setdesc(self, args):
-        reponame = args.get("repo")
-        for i in self.except_checks:
-            if i.match(reponame):
-                return True
-        reponame = self._strip_reponame(reponame)
+    def setdesc(self, name, desc):
+        name = self._strip_reponame(name)
         payload = { "description": desc }
-        url = "{0}/{1}/{2}".format(self.ENDPOINT_REPO, self.organization, reponame)
+        url = "{0}/{1}/{2}".format(self.ENDPOINT_REPO, self.organization, name)
         r = self.session.patch(url, data = json.dumps(payload))
         return ((r.status_code == 201) and ("id" in r.json().keys()))

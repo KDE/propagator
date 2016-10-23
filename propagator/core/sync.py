@@ -46,8 +46,9 @@ def _sync(src, dest, restricted = False, reftypes = ()):
         ret = remote.push(refs)
     else:
         ret = remote.push("--mirror")
-    for info in st and (info.flags & git.PushInfo.ERROR):
-        return False
+    for info in ret:
+        if  (info.flags & git.PushInfo.ERROR):
+            return False
     return True
 
 mirror_sync = lambda src, dest: _sync(src, dest)
