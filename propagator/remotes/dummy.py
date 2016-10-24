@@ -53,7 +53,6 @@ class Remote(RemoteBase):
 
     def update(self, repo, name):
         print("update repo - {}".format(name))
-        raise Exception
 
     def delete(self, name):
         print("delete repo - {}".format(name))
