@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name             = "propagator",
-    version          = "0.1.95",
+    version          = "0.1.96",
     author           = "Boudhayan Gupta",
     author_email     = "bgupta@kde.org",
     description      = ("A git mirror fleet manager"),
@@ -27,7 +27,8 @@ setup(
         "console_scripts": (
             "propagator-agent = propagator.agent:main",
             "propagator-remoteslave = propagator.remoteslave:main",
-            "propagator-mirrorsync = propagator.utils.mirrorsync:main"
+            "propagator-mirrorsync = propagator.utils.mirrorsync:main",
+            "propagator-mirrorctl = propagator.utils.mirrorctl:main"
         ),
     },
 )

@@ -122,7 +122,7 @@ class Remote(RemoteBase):
 
     def setdesc(self, name, desc):
         name = self._strip_reponame(name)
-        payload = { "description": desc }
+        payload = { "name": name, "description": desc }
         url = "{0}/{1}/{2}".format(self.ENDPOINT_REPO, self.organization, name)
         r = self.session.patch(url, data = json.dumps(payload))
         return ((r.status_code == 201) and ("id" in r.json().keys()))

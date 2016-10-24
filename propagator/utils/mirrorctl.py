@@ -30,28 +30,48 @@
 import sys
 import argparse
 
-from propagator.utils.common import is_valid_repo, send_message
+from propagator.utils.common import is_valid_repo, send_message, allowed_ops, set_local_desc
 
 def cmdline_process():
-    parser = argparse.ArgumentParser(description = "Sync updates to all repository mirrors through Propagator")
+    parser = argparse.ArgumentParser(description = "Propagator Mirror Control Utility")
+    parser.add_argument("action", type = str, help = "the action to perform on the repo", choices = allowed_ops)
     parser.add_argument("reponame", type = str, help = "the name of the repository to update")
+    parser.add_argument("-D", "--dest", type = str, help = "the new name for the renamed repository", required = False)
+    parser.add_argument("-d", "--desc", type = str, help = "the new description for the repository", required = False)
     parser.add_argument("remote", type = str, nargs = "*", help = "update only these remotes")
-    parser.add_argument("-v", "--verbose", action = "store_true", help = "give verbose output on the standard output")
+
     args = parser.parse_args()
+    if (args.action ==  "rename") and (not args.dest):
+        parser.error("The rename action requires a specified restination")
     return args
 
 def main():
     args = cmdline_process()
-    if not (is_valid_repo(args.reponame)):
+    if (args.action == "update") and (not is_valid_repo(args.reponame)):
         print("ERROR: {} is not a valid repository".format(args.reponame), file = sys.stderr)
         sys.exit(1)
-    message = { "operation": "update", "repository": args.reponame, "attempt": 0 }
+
+    # compose the message
+    message = {
+        "operation": args.action,
+        "repository": args.reponame,
+        "attempt": 0
+    }
+
+    # compose optional extras in the message
+    if (args.action == "rename"):
+        message["destination"] = args.dest
+    if (args.action == "syncdesc") and args.desc:
+        if not set_local_desc(args.reponame, args.desc):
+            print("ERROR: Unable to set description on the local repository")
+            sys.exit(1)
     if args.remote:
         message["remote_for"] = args.remote
+
+    # send the message and analyse the fallout
     ret = send_message(message)
     if not ret:
-        print("ERROR: Failed to notify Propagator to update repository mirrors")
+        print("ERROR: Failed to notify Propagator. Please check if the AMQP server is running")
         sys.exit(1)
-    if args.verbose:
-        print("Successfully notified Propagator to update repository mirrors")
+    print("SUCCESS: Propagator has been notified")
     sys.exit(0)

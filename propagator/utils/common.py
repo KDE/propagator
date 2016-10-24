@@ -30,12 +30,42 @@
 import git
 import os
 
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
 from propagator.core.config import config_general
+from propagator.remoteslave import amqp
+
+# Data First
+
+allowed_ops = ("create", "update", "rename", "delete", "syncdesc")
+
+# Methods
+
+def send_message(payload):
+    body = json.dumps(payload)
+    channel = amqp.create_channel_producer()
+    return channel.basic_publish(
+        exchange = amqp.exchange_name(),
+        routing_key = "",
+        body = body
+    )
 
 def is_valid_repo(repo):
     path = os.path.join(config_general.get("repobase"), repo)
     try:
         repo = git.Repo(path)
     except (git.exc.NoSuchPathError, git.exc.InvalidGitRepositoryError):
+        return False
+    return True
+
+def set_local_desc(repo, desc):
+    path = os.path.join(config_general.get("repobase"), repo)
+    repo = git.Repo(path)
+    try:
+        repo.description = desc
+    except Exception:
         return False
     return True
