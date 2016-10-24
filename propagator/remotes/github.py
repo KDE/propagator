@@ -56,7 +56,7 @@ class Remote(RemoteBase):
 
         self.access_token = cfgdict["access_token"]
         self.organization = cfgdict["organization"]
-        self.except_checks = ( re.compile(i) for i in cfgdict["excepts"] )
+        self.except_checks = tuple(re.compile(i) for i in cfgdict["excepts"])
         self.repo_base = config_general.get("repobase")
 
         self.session = requests.Session()

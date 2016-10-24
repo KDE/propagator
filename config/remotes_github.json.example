@@ -3,7 +3,7 @@
     "access_token": "dummytoken",
 
     "excepts": [
-        "^gitolite-admin.git$",
+        "^gitolite-admin(.git)?$",
         "([a-zA-Z0-9]*)/(.*)"
     ]
 }
